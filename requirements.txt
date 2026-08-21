@@ -1,0 +1,21 @@
+# Threat-Shape — backend dependencies.
+# Restricted to the stack declared in CLAUDE.md sec.7; nothing is added without asking.
+#
+# Install into an isolated environment (.venv is gitignored):
+#     python -m venv .venv
+#     .venv/Scripts/python -m pip install -r requirements.txt      # Windows
+#     .venv/bin/python     -m pip install -r requirements.txt      # macOS / Linux
+
+# --- web layer -------------------------------------------------------------------
+fastapi>=0.115
+uvicorn[standard]>=0.32
+pydantic>=2.9
+
+# --- data / analytics ------------------------------------------------------------
+pandas>=2.2
+numpy>=2.0
+scikit-learn>=1.5      # PCA (phase 3) and t-SNE (phases 4 and 13)
+scipy>=1.14            # z-score / contingency statistics (analytics 6.1 and 6.3)
+
+# The frontend deliberately has no dependencies here: D3 v7 is loaded from a CDN and
+# there is no build step (CLAUDE.md sec.3).

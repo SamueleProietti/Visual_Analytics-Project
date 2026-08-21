@@ -1,0 +1,140 @@
+/* Threat-Shape — layout shell.
+   Phase 1 defines only the frame: the four view containers, the header status line and
+   the footer. View-specific styling arrives with each view in phases 6-9. */
+
+:root {
+  /* Neutral UI palette. Data-encoding colours are deliberately NOT defined here - each
+     view declares its own scale next to the code that uses it, so the choice of scale
+     stays next to its justification (CLAUDE.md sec.2: divergent only where a sign is
+     meaningful). */
+  --ink: #1a1a1a;
+  --ink-soft: #6b6b6b;
+  --rule: #d4d4d4;
+  --surface: #ffffff;
+  --surface-sunken: #fafafa;
+
+  --ok: #2e7d32;
+  --pending: #b26a00;
+  --error: #c62828;
+
+  /* Fixed view size. CLAUDE.md sec.2 penalises unjustified scrollable views, so the
+     views never scroll - they are sized once and their contents fit. */
+  /* Sized so two columns fit a 1280px viewport with the vertical scrollbar present,
+     and all four views fit one screen during the live demo. */
+  --view-w: 590px;
+  --view-h: 340px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 20px 24px;
+  background: var(--surface-sunken);
+  color: var(--ink);
+  font: 14px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+/* ---------- header ---------- */
+
+.app-header {
+  display: flex;
+  align-items: baseline;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.status {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 3px;
+  border: 1px solid currentColor;
+}
+
+.status--ok      { color: var(--ok); }
+.status--pending { color: var(--pending); }
+.status--error   { color: var(--error); }
+
+/* ---------- view grid ---------- */
+
+/* 2x2, matching docs/Img_mockup.png. Source order in the HTML is A, B, D, C, which
+   lays out as A B / D C - the mockup's arrangement. */
+.view-grid {
+  display: grid;
+  /* auto-fit rather than a hard "repeat(2, …)": the views keep their fixed size, but on
+     a viewport too narrow for two columns the grid wraps instead of forcing the page
+     into a horizontal scroll. The views themselves still never scroll. */
+  grid-template-columns: repeat(auto-fit, var(--view-w));
+  gap: 22px;
+  justify-content: start;
+}
+
+.view {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 12px 14px 10px;
+}
+
+.view h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.view-kind {
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+
+.view-sub {
+  margin: 2px 0 10px;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+.view-canvas {
+  height: var(--view-h);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;          /* fixed-size views: clip rather than scroll */
+}
+
+.placeholder {
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* Every view carries its own legend (CLAUDE.md sec.2: a missing legend costs 2 points).
+   Reserved here so no view can ship without one. */
+.view-legend {
+  min-height: 22px;
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+/* ---------- footer ---------- */
+
+.app-footer {
+  margin-top: 18px;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+.footer-sep { margin: 0 6px; }

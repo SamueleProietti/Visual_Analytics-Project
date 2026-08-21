@@ -31,6 +31,13 @@ Aggiungere qui, mano a mano, una riga per fase completata con data e AS index co
 così chi apre una nuova sessione (tu, il tuo compagno, o Claude Code) vede subito lo
 stato reale senza dover rileggere tutta la chat.
 
-- [ ] Fase 0 — completata il: ___ — AS index confermato: ___
-- [ ] Fase 1 — completata il: ___
+- [x] Fase 0 — completata il: 2026-08-21 — **AS index confermato: 61.452** (3.414 × 18)
+      Verifica in `scripts/00_verify_data.py`, esiti in `docs/phase0_report.md`.
+      `docs/proposal.md` NON modificato: le divergenze sono registrate nel report.
+      Decisioni chiuse: set one-hot = **125** colonne su 14 blocchi.
+      Decisione aperta: definizione di non-attribuzione (48,65% documentale vs
+      51,87% "nessuno stato iniziatore") — da chiudere prima della Fase 2.
+- [x] Fase 1 — completata il: 2026-08-21
+      Scheletro FastAPI + D3 v7 funzionante, round-trip `GET /api/health` verificato.
+      Griglia 2×2 come da mockup (A B / D C), viste a dimensione fissa, nessuno scroll.
 - [ ] Fase 2 — completata il: ___

@@ -14,3 +14,6 @@ node_modules/
 # os / editor
 .DS_Store
 .vscode/
+
+# claude code local launch config (contains machine-specific paths)
+.claude/

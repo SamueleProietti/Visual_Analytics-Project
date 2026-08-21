@@ -2,11 +2,70 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Threat-Shape</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <h1>Threat-Shape — setup pending</h1>
+
+  <header class="app-header">
+    <h1>THREAT-SHAPE</h1>
+    <!-- Filled by main.js from GET /api/health: the phase-1 proof that the two
+         halves of the stack are talking to each other. -->
+    <div id="backend-status" class="status status--pending">connecting to backend…</div>
+  </header>
+
+  <!-- Grid mirrors docs/Img_mockup.png: A and B on top, D bottom-left, C bottom-right.
+       Views are fixed-size and never scroll (CLAUDE.md sec.2: scrollable views cost
+       2 points unless justified). -->
+  <main class="view-grid">
+
+    <section class="view" id="view-a">
+      <h2>View A <span class="view-kind">World choropleth map</span></h2>
+      <p class="view-sub">colour = how much a country is hit more / less than expected</p>
+      <div class="view-canvas" id="view-a-canvas">
+        <span class="placeholder">phase 6</span>
+      </div>
+      <div class="view-legend" id="view-a-legend"></div>
+    </section>
+
+    <section class="view" id="view-b">
+      <h2>View B <span class="view-kind">t-SNE projection</span></h2>
+      <p class="view-sub">one point per incident · re-projects when you select a subset</p>
+      <div class="view-canvas" id="view-b-canvas">
+        <span class="placeholder">phase 7</span>
+      </div>
+      <div class="view-legend" id="view-b-legend"></div>
+    </section>
+
+    <section class="view" id="view-d">
+      <h2>View D <span class="view-kind">Contrast panel</span></h2>
+      <p class="view-sub">bars = size of difference · order = statistical reliability</p>
+      <div class="view-canvas" id="view-d-canvas">
+        <!-- Starts empty by design: analytics 6.3 must not compute before a selection
+             exists (CLAUDE.md sec.6). This prompt is the "no default global state". -->
+        <span class="placeholder">phase 9 — select a country or lasso a cluster</span>
+      </div>
+      <div class="view-legend" id="view-d-legend"></div>
+    </section>
+
+    <section class="view" id="view-c">
+      <h2>View C <span class="view-kind">Stacked area timeline</span></h2>
+      <p class="view-sub">incidents by type, 2000–2024</p>
+      <div class="view-canvas" id="view-c-canvas">
+        <span class="placeholder">phase 8</span>
+      </div>
+      <div class="view-legend" id="view-c-legend"></div>
+    </section>
+
+  </main>
+
+  <footer class="app-footer">
+    <span id="dataset-summary">…</span>
+    <span class="footer-sep">·</span>
+    <span>Sapienza University of Rome — Visual Analytics</span>
+  </footer>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
   <script src="js/main.js"></script>
 </body>
