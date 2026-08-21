@@ -1,0 +1,16 @@
+# raw and cached data — never commit these
+data/*
+!data/.gitkeep
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# node (if any tooling added later)
+node_modules/
+
+# os / editor
+.DS_Store
+.vscode/
