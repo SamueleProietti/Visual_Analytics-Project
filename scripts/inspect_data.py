@@ -12,12 +12,14 @@ Usage:
     python scripts/inspect_data.py --incident 1       decode one incident to labels
     python scripts/inspect_data.py --block disrupt    every indicator in one block
     python scripts/inspect_data.py --country Italy    one country's sector profile
+    python scripts/inspect_data.py --pca              explained variance, PC1/PC2 extremes
     python scripts/inspect_data.py --audit            recompute from raw CSVs and compare
 """
 
 import argparse
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -198,6 +200,49 @@ def show_country(art, name):
 
 # --------------------------------------------------------------------------------------
 
+def show_pca(art):
+    """Explained variance, and the incidents sitting at each end of PC1 and PC2.
+
+    Reading the extremes is the cheapest way to find out what a component actually
+    encodes: a component that separates well-documented from badly-documented incidents
+    looks exactly like a component that separates two threat profiles, until you read
+    the records at its ends.
+    """
+    if not (PROC / "pca_components.csv.gz").is_file():
+        raise SystemExit("pca_components.csv.gz not found - run scripts/02_pca.py")
+
+    pcs = pd.read_csv(PROC / "pca_components.csv.gz")
+    summary = pd.read_csv(PROC / "pca_summary.csv")
+    meta, matrix, blocks = art["meta"], art["matrix"], art["blocks"]
+
+    rule("PCA - EXPLAINED VARIANCE")
+    for _, row in summary.iterrows():
+        bar = "#" * max(1, int(row["explained_variance_ratio"] * 200))
+        print(f"  {row['component']:>5s} {row['explained_variance_ratio']:6.2%} "
+              f"{row['cumulative']:7.1%}  {bar}")
+    print(f"\n  20 components retain {summary['cumulative'].iloc[-1]:.1%} of the variance.")
+
+    # Incompleteness index: how many "Not available"-style indicators each incident has.
+    nullish = [c for c in blocks.loc[blocks["is_nullish"], "column"]]
+    incompleteness = matrix[nullish].sum(axis=1)
+    joined = pcs.merge(meta[["incident_id", "name", "year"]], on="incident_id")
+    joined["nullish"] = incompleteness.to_numpy()
+
+    for pc in ("PC1", "PC2"):
+        r = float(np.corrcoef(joined[pc], joined["nullish"])[0, 1])
+        rule(f"{pc} EXTREMES   (correlation with incompleteness: r = {r:+.3f})")
+        for end, frame in (("most negative", joined.nsmallest(4, pc)),
+                           ("most positive", joined.nlargest(4, pc))):
+            print(f"\n  {end}:")
+            for _, row in frame.iterrows():
+                year = "----" if pd.isna(row["year"]) else int(row["year"])
+                print(f"    {row[pc]:+7.2f}  nullish={int(row['nullish']):2d}  "
+                      f"{year}  {str(row['name'])[:44]}")
+        print(f"\n  mean nullish count: {joined.nsmallest(200, pc)['nullish'].mean():.1f} "
+              f"at the negative end vs {joined.nlargest(200, pc)['nullish'].mean():.1f} "
+              f"at the positive end (200 incidents each)")
+
+
 def audit(art):
     """Recompute key figures straight from the raw CSVs and compare to the artifacts.
 
@@ -252,6 +297,8 @@ def main():
     parser.add_argument("--incident", type=int, help="decode one incident into labels")
     parser.add_argument("--block", type=str, help="list every indicator in one block")
     parser.add_argument("--country", type=str, help="one country's sector profile")
+    parser.add_argument("--pca", action="store_true",
+                        help="explained variance and what PC1/PC2 encode")
     parser.add_argument("--audit", action="store_true",
                         help="recompute from the raw CSVs and compare")
     args = parser.parse_args()
@@ -263,6 +310,8 @@ def main():
         show_block(art, args.block)
     elif args.country:
         show_country(art, args.country)
+    elif args.pca:
+        show_pca(art)
     elif args.audit:
         audit(art)
     else:
