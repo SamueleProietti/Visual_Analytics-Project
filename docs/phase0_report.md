@@ -268,6 +268,21 @@ countries by citation hygiene.
 analyst means by "unattributed", and is defensible at the oral exam. It also lands close
 enough in magnitude that the proposal's narrative is unaffected.
 
+### Decision (2026-08-22): adopted, 51.87%
+
+View A's attribution layer is built on `initiator_country ∈ {"Not attributed", "Unknown"}`.
+
+The deciding argument is that View A is a **choropleth keyed on country**. The question it
+must answer is "can this incident be assigned to an initiating country?", and the 741
+incidents whose actor category is known but whose country is not (604 of them
+`Non-state-group`) are precisely the ones the map cannot colour. `initiator_category` — which
+yields 34.45% on `global` and 35.82% on `dyadic` — measures a real but different property,
+the nature of the actor, and the `dyadic` figure is additionally computed over 4,296
+dyad rows rather than 3,414 incidents, so it is not comparable to the other definitions.
+
+The proposal's 48.7% is therefore **not** reproduced by design, and the divergence is stated
+openly in the final report rather than quietly matched.
+
 ---
 
 ## 8. Summary of divergences from `docs/proposal.md`
@@ -278,7 +293,7 @@ enough in magnitude that the proposal's narrative is unaffected.
 | ~20 dimensions | 18 | Within the "~" hedge; no edit needed |
 | ~68,000 AS index | **61,452** | Corrected figure; still above range, "braves" case intact |
 | (82 one-hot — not in proposal) | **125** | No approved figure existed; 125 adopted |
-| (48.7% — not in proposal) | **51.87%** under the recommended definition | Redefined substantively |
+| (48.7% — not in proposal) | **51.87%** — adopted 2026-08-22 | Redefined substantively |
 | 3,414 / 4,296 / 5,217 / 12,180 rows | All confirmed exactly | No change |
 
 **`docs/proposal.md` is unmodified.**

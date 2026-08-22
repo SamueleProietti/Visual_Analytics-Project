@@ -7,9 +7,9 @@ the AS index if it changed, name the next phase, then stop and wait for confirma
 |---|---|---|---|---|
 | 0 | Verifica dati | Ricontare le colonne one-hot reali, ricalcolare l'AS index, contare le categorie di `incident_type` | Report di verifica, numeri confermati o corretti | **Sì — non si procede senza** |
 | 1 | Setup & architettura | Repo, backend FastAPI + frontend D3, "hello world" che dimostra che si parlano | Skeleton funzionante | No |
-| 2 | Preprocessing dati | Join delle 4 tabelle su `incident_id`, esplosione colonne multi-valore, one-hot encoding, "Not available" come categoria propria | `features_matrix.parquet` + tabelle di contingenza | No |
-| 3 | Feature scaling + PCA | Standardizzazione (z-score), PCA a 20 componenti, verifica varianza spiegata reale | `pca_components.parquet` | No |
-| 4 | t-SNE globale (offline) | Embedding precalcolato sull'intero corpus, perplexity motivata | `tsne_global.parquet` | No |
+| 2 | Preprocessing dati | Join delle 4 tabelle su `incident_id`, esplosione colonne multi-valore, one-hot encoding, "Not available" come categoria propria | `features_matrix.csv.gz` + tabelle di contingenza | No |
+| 3 | Feature scaling + PCA | Standardizzazione (z-score), PCA a 20 componenti, verifica varianza spiegata reale | `pca_components.csv.gz` | No |
+| 4 | t-SNE globale (offline) | Embedding precalcolato sull'intero corpus, perplexity motivata | `tsne_global.csv.gz` | No |
 | 5 | Backend API — dati statici | Endpoint che servono incidenti, coordinate t-SNE, geometria mappa | API minima funzionante | No |
 | 6 | View A — Mappa | Choropleth con dati reali, layer switchable residuo/attribuzione, pannello details-on-demand | Vista funzionante, non coordinata | No |
 | 7 | View B — Scatter t-SNE | Punti reali, colore/size come da proposta | Vista funzionante | No |
@@ -34,9 +34,14 @@ stato reale senza dover rileggere tutta la chat.
 - [x] Fase 0 — completata il: 2026-08-21 — **AS index confermato: 61.452** (3.414 × 18)
       Verifica in `scripts/00_verify_data.py`, esiti in `docs/phase0_report.md`.
       `docs/proposal.md` NON modificato: le divergenze sono registrate nel report.
-      Decisioni chiuse: set one-hot = **125** colonne su 14 blocchi.
-      Decisione aperta: definizione di non-attribuzione (48,65% documentale vs
-      51,87% "nessuno stato iniziatore") — da chiudere prima della Fase 2.
+      Decisioni chiuse il 2026-08-22:
+      · set one-hot = **125** colonne su 14 blocchi (matrice 129 = 125 + 4 ordinali);
+      · non-attribuzione = **51,87%**, `initiator_country` ∈ {Not attributed, Unknown},
+        cioè "nessuno stato iniziatore identificato" (il 48,65% del proposal misurava
+        `attribution_source_url`, cioè la presenza del link alla fonte);
+      · artefatti in **`.csv.gz`** e non `.parquet`: evita la dipendenza `pyarrow`,
+        fuori dallo stack di CLAUDE.md §7, per un guadagno di ~70 ms una volta
+        all'avvio su una matrice da 69 KB. Tabella sopra aggiornata di conseguenza.
 - [x] Fase 1 — completata il: 2026-08-21
       Scheletro FastAPI + D3 v7 funzionante, round-trip `GET /api/health` verificato.
       Griglia 2×2 come da mockup (A B / D C), viste a dimensione fissa, nessuno scroll.
