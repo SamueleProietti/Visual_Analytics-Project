@@ -125,7 +125,7 @@ indicators stay strictly binary.
 
 All 85 columns of `global` are classified; none left unaccounted.
 
-### 4.1 Retained — 14 one-hot blocks (125 indicator columns)
+### 4.1 Retained — 14 one-hot blocks (123 indicator columns)
 
 | Column | Block prefix | Atoms | Informative | Rationale |
 |---|---|---|---|---|
@@ -139,11 +139,11 @@ All 85 columns of `global` are classified; none left unaccounted.
 | `initiator_category` | `init_` | 7 | 65.8% | Actor type |
 | `functional_impact` | `impact_` | 6 | 56.9% | Operational consequence |
 | `intelligence_impact` | `impact_` | 6 | 57.3% | Intelligence consequence |
-| `disruption` | — | 6 | 42.9% | Intensity component |
+| `disruption` | — | 4 | 42.9% | Intensity component |
 | `state_responsibility_actor` | `init_` | 4 | 32.0% | State involvement — key for attribution analysis |
 | `data_theft` | — | 4 | 48.9% | Intensity component |
 | `hijacking` | — | 4 | 63.3% | Intensity component |
-| **Total** | | **125** | | |
+| **Total** | | **123** | | |
 
 ### 4.2 Retained — 4 ordinal severity variables (kept numeric)
 
@@ -202,24 +202,56 @@ Two exclusion groups deserve comment:
 
 | Candidate set | One-hot | + ordinal | Feature matrix |
 |---|---|---|---|
-| (a) Preliminary 17-column pass | 138 | — | 138 |
-| **(b) Recommended — 14 blocks** | **125** | **4** | **129** |
-| (c) Narrowed to approach 82 | 80 | 4 | 84 |
+| (a) Preliminary 17-column pass | 134 | — | 134 |
+| **(b) Recommended — 14 blocks** | **123** | **4** | **127** |
+| (c) Narrowed to approach 82 | 78 | 4 | 82 |
 
-The preliminary pass reproduces at **exactly 138**, confirming that the "82" figure is wrong
+The preliminary pass reproduces at **exactly 134**, confirming that the "82" figure is wrong
 by a wide margin. `il_breach_indicator` alone contributes 20.
 
-Set (c) reaches 80 by dropping `il_breach_indicator` (20), `cyber_conflict_issue` (13) and
+Set (c) reaches 78 by dropping `il_breach_indicator` (20), `cyber_conflict_issue` (13) and
 `offline_conflict_issue` (12).
 
-**Recommendation: (b), 125 one-hot columns.** Since the proposal never states 82, there is
+**Recommendation: (b), 123 one-hot columns.** Since the proposal never states 82, there is
 no approved figure to reconcile against. Set (c) would delete the entire `ilaw_` and `issue_`
 blocks that CLAUDE.md §4 names explicitly as part of the intended selection, and all three
 columns are genuinely informative (54.8%, 46.7%, 28.1%). Narrowing the analysis to match a
 number that does not appear in the contract would trade real analytical content for nothing.
 
-Per CLAUDE.md §5b, this count is recorded **here only** — not in code comments, logs, or the
-proposal — and it is a measured value, not a design target.
+CLAUDE.md §5b forbade stating any fixed one-hot count until it had been measured on the real
+data. It now has been, so 123 may be quoted — but as a measured value, never as a design
+target, and never in `docs/proposal.md`.
+
+### 5.1 Correction applied 2026-08-22: the parenthesised-semicolon bug
+
+The counts above were **revised down during Phase 2**. The original pass split multi-valued
+cells on every `;`, which is wrong for categories whose parenthesised explanation contains one:
+
+```
+"Long-term disruption (> 24h; incident scores 2 points in intensity)"
+```
+
+A plain split turns that single category into two nonsense ones — `"Long-term disruption
+(> 24h"` and `"incident scores 2 points in intensity)"`. Only `disruption` is affected among
+the retained columns (`physical_effects_temporal` has the same shape but was already dropped
+as degenerate), and it inflated that block from 4 indicators to 6.
+
+| Figure | Before | Corrected |
+|---|---|---|
+| (a) Preliminary 17-column pass | 138 | **134** |
+| (b) Recommended one-hot width | 125 | **123** |
+| (c) Narrowed set | 80 | **78** |
+| Feature matrix width | 129 | **127** |
+| **AS index** | 61,452 | **61,452 — unchanged** |
+
+The AS index is untouched because it counts the 18 conceptual variables, not the exploded
+indicators — which is precisely the property that makes it the right measure.
+
+The bug was found by decoding one incident back into readable labels and reading them, not
+by any automated check: every invariant test still passed, because 6 phantom-free columns are
+just as binary and just as complete as 4 real ones. The splitting rule now lives in
+`scripts/eurepoc_atoms.py` and is imported by both scripts, so the verification and the
+preprocessing can no longer disagree about what an atom is.
 
 ---
 
@@ -292,7 +324,7 @@ openly in the final report rather than quietly matched.
 | "or empty" | 0 entirely empty; 12 effectively constant | Read as "effectively constant"; state in report |
 | ~20 dimensions | 18 | Within the "~" hedge; no edit needed |
 | ~68,000 AS index | **61,452** | Corrected figure; still above range, "braves" case intact |
-| (82 one-hot — not in proposal) | **125** | No approved figure existed; 125 adopted |
+| (82 one-hot — not in proposal) | **123** | No approved figure existed; 123 adopted |
 | (48.7% — not in proposal) | **51.87%** — adopted 2026-08-22 | Redefined substantively |
 | 3,414 / 4,296 / 5,217 / 12,180 rows | All confirmed exactly | No change |
 

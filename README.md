@@ -54,5 +54,5 @@ Re-derives every figure quoted in `docs/phase0_report.md` from the raw CSVs:
 | Incidents (tuples) | 3,414 |
 | Raw analytical columns | 18 — 14 one-hot blocks + 4 ordinal |
 | **AS index** | **61,452** |
-| One-hot feature width | 125 |
+| One-hot feature width | 123 |
 | `incident_type` categories | 7 (exploded from 49 combined strings) |

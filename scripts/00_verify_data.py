@@ -12,10 +12,11 @@ Nothing here writes artifacts - it only measures and reports. Run:
     python scripts/00_verify_data.py
 """
 
-from collections import Counter
 from pathlib import Path
 
 import pandas as pd
+
+from eurepoc_atoms import atom_counts, split_atoms
 
 RAW = Path(__file__).resolve().parent.parent / "data" / "raw"
 
@@ -38,7 +39,7 @@ SEP = ";"
 # candidate column sets
 # --------------------------------------------------------------------------------------
 
-# The 17 columns of the preliminary manual pass, reproduced verbatim so its ~138 figure
+# The 17 columns of the preliminary manual pass, reproduced verbatim so its figure
 # can be confirmed rather than trusted.
 SET_PRELIMINARY = [
     "mitre_initial_access", "mitre_impact", "functional_impact", "intelligence_impact",
@@ -129,21 +130,18 @@ EXCLUDED_BY_KIND = {
 def atoms_of(series):
     """Explode a semicolon-separated column into its atomic values.
 
-    Counts each atom once per row: EuRepoC repeats atoms within a row when an incident
-    has several receivers (see the incident_type duplication check below), and a binary
-    indicator must stay binary.
+    Delegates the splitting rule to eurepoc_atoms, so this script and 01_preprocess.py
+    can never disagree about what an atom is - the counts reported here have to
+    describe the matrix that actually gets built. See that module for why a plain
+    split(";") is wrong.
     """
-    counter = Counter()
-    for value in series.fillna("Not available").astype(str):
-        for atom in {part.strip() for part in value.split(SEP) if part.strip()}:
-            counter[atom] += 1
-    return counter
+    return atom_counts(series.fillna("Not available").astype(str))
 
 
 def informative_share(series):
     """Share of rows carrying at least one non-nullish atom."""
     return series.fillna("<NaN>").astype(str).apply(
-        lambda v: any(p.strip().lower() not in NULLISH for p in v.split(SEP))
+        lambda v: any(a.strip().lower() not in NULLISH for a in split_atoms(v))
     ).mean()
 
 
@@ -218,7 +216,7 @@ def check_incident_type(g, dyadic):
         raw.str.contains(SEP).mean()))
 
     dup_combos = [(v, n) for v, n in raw.value_counts().items()
-                  if len(v.split(SEP)) != len({p.strip() for p in v.split(SEP)})]
+                  if len([p for p in v.split(SEP) if p.strip()]) != len(split_atoms(v))]
     print("\n  Combined strings repeating an atom within one row: {} ({} rows)".format(
         len(dup_combos), sum(n for _, n in dup_combos)))
     for v, n in dup_combos[:5]:

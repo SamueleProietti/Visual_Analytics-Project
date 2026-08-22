@@ -35,7 +35,7 @@ stato reale senza dover rileggere tutta la chat.
       Verifica in `scripts/00_verify_data.py`, esiti in `docs/phase0_report.md`.
       `docs/proposal.md` NON modificato: le divergenze sono registrate nel report.
       Decisioni chiuse il 2026-08-22:
-      · set one-hot = **125** colonne su 14 blocchi (matrice 129 = 125 + 4 ordinali);
+      · set one-hot = **123** colonne su 14 blocchi (matrice 127 = 123 + 4 ordinali);
       · non-attribuzione = **51,87%**, `initiator_country` ∈ {Not attributed, Unknown},
         cioè "nessuno stato iniziatore identificato" (il 48,65% del proposal misurava
         `attribution_source_url`, cioè la presenza del link alla fonte);
@@ -45,4 +45,14 @@ stato reale senza dover rileggere tutta la chat.
 - [x] Fase 1 — completata il: 2026-08-21
       Scheletro FastAPI + D3 v7 funzionante, round-trip `GET /api/health` verificato.
       Griglia 2×2 come da mockup (A B / D C), viste a dimensione fissa, nessuno scroll.
-- [ ] Fase 2 — completata il: ___
+- [x] Fase 2 — completata il: 2026-08-22 — **AS index invariato: 61.452**
+      `scripts/01_preprocess.py` produce 5 artefatti in `data/processed/`, 23/23 verifiche
+      passate. Matrice **3.414 × 127** (123 binarie + 4 ordinali).
+      Contingenza paese×settore da `receiver` + fallback da `global` sui 92 incidenti
+      mancanti: copertura 3.414/3.414.
+      **Correzione:** trovato un bug nello split dei `;` dentro le parentesi — one-hot
+      123 e non 125, matrice 127 e non 129 (AS index invariato). Regola di split ora
+      condivisa in `scripts/eurepoc_atoms.py`. Dettagli in `docs/phase0_report.md` §5.1.
+      **Da affrontare in Fase 12:** l'82,4% delle celle paese×settore ha frequenza
+      attesa < 5 (205 paesi × 12 settori su 12.363 osservazioni).
+- [ ] Fase 3 — completata il: ___
