@@ -8,7 +8,7 @@ the AS index if it changed, name the next phase, then stop and wait for confirma
 | 0 | Verifica dati | Ricontare le colonne one-hot reali, ricalcolare l'AS index, contare le categorie di `incident_type` | Report di verifica, numeri confermati o corretti | **Sì — non si procede senza** |
 | 1 | Setup & architettura | Repo, backend FastAPI + frontend D3, "hello world" che dimostra che si parlano | Skeleton funzionante | No |
 | 2 | Preprocessing dati | Join delle 4 tabelle su `incident_id`, esplosione colonne multi-valore, one-hot encoding, "Not available" come categoria propria | `features_matrix.csv.gz` + tabelle di contingenza | No |
-| 3 | Feature scaling + PCA | Standardizzazione (z-score), PCA a 20 componenti, verifica varianza spiegata reale | `pca_components.csv.gz` | No |
+| 3 | Feature scaling + PCA | Standardizzazione (z-score), PCA a 20 componenti, verifica varianza spiegata reale | `pca_components.csv.gz` + loadings/summary | No |
 | 4 | t-SNE globale (offline) | Embedding precalcolato sull'intero corpus, perplexity motivata | `tsne_global.csv.gz` | No |
 | 5 | Backend API — dati statici | Endpoint che servono incidenti, coordinate t-SNE, geometria mappa | API minima funzionante | No |
 | 6 | View A — Mappa | Choropleth con dati reali, layer switchable residuo/attribuzione, pannello details-on-demand | Vista funzionante, non coordinata | No |
@@ -55,4 +55,15 @@ stato reale senza dover rileggere tutta la chat.
       condivisa in `scripts/eurepoc_atoms.py`. Dettagli in `docs/phase0_report.md` §5.1.
       **Da affrontare in Fase 12:** l'82,4% delle celle paese×settore ha frequenza
       attesa < 5 (205 paesi × 12 settori su 12.363 osservazioni).
-- [ ] Fase 3 — completata il: ___
+- [x] Fase 3 — completata il: 2026-08-22 — **AS index invariato: 61.452**
+      `scripts/02_pca.py`: standardizzazione + PCA a 20 componenti, 5/5 verifiche.
+      **Varianza spiegata dalle 20 componenti: 50,7%** (ne servirebbero 55 per l'80%).
+      Il timore sulle categorie rare è risultato infondato: |loading| medio 0,0135 per
+      le rare contro 0,1029 per le comuni — la PCA le relega nella coda.
+      **Problema aperto per la Fase 4:** PC1 (10,4% della varianza, la componente
+      maggiore) correla **r = +0,79** con l'incompletezza documentale, che ne spiega il
+      62% della varianza. I suoi contributi principali sono tutti indicatori
+      "Not available". Prima di costruire View B va verificato se il t-SNE separa
+      visibilmente su quest'asse: l'analista leggerebbe "due profili di minaccia" dove
+      c'è solo "documentato vs non documentato".
+- [ ] Fase 4 — completata il: ___
