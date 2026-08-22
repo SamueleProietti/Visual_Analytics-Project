@@ -66,4 +66,19 @@ stato reale senza dover rileggere tutta la chat.
       "Not available". Prima di costruire View B va verificato se il t-SNE separa
       visibilmente su quest'asse: l'analista leggerebbe "due profili di minaccia" dove
       c'è solo "documentato vs non documentato".
-- [ ] Fase 4 — completata il: ___
+- [x] Fase 4 — completata il: 2026-08-22 — **AS index invariato: 61.452**
+      `scripts/03_tsne_global.py`: embedding 2D precalcolato, 5/5 verifiche.
+      **Perplexity = 30**, scelta misurando la *trustworthiness* su tre candidate
+      (15 → 0,9877 · **30 → 0,9897** · 50 → 0,9885), non presa per default. La KL
+      divergence è esplicitamente scartata come criterio: cala con la perplexity per
+      costruzione, quindi premierebbe sempre la candidata più piccola.
+      **Questione della Fase 3 risolta:** l'incompletezza documentale raggruppa a 0,913
+      contro 0,898 della variabile sostanziale più forte (baseline casuale 0,045) —
+      +1,7%, quindi *comparabile*, non dominante. L'embedding raggruppa fortemente su
+      tutto insieme. Resta un limite dichiarato nel report, non un blocco per View B.
+      **Da tenere presente in Fase 6-7:** il settore bersaglio raggruppa solo a 0,409 —
+      selezionare per settore NON produrrà un cluster netto in View B. È una proprietà
+      dei dati: le viste coordinate non devono essere attese concordi su quell'asse.
+      **Nota:** 673 incidenti hanno profili di feature identici (il gruppo maggiore ne
+      conta 40), quindi coordinate ripetute sono attese e non un errore.
+- [ ] Fase 5 — completata il: ___

@@ -13,6 +13,7 @@ Usage:
     python scripts/inspect_data.py --block disrupt    every indicator in one block
     python scripts/inspect_data.py --country Italy    one country's sector profile
     python scripts/inspect_data.py --pca              explained variance, PC1/PC2 extremes
+    python scripts/inspect_data.py --tsne             embedding by 3 variables
     python scripts/inspect_data.py --audit            recompute from raw CSVs and compare
 """
 
@@ -200,6 +201,78 @@ def show_country(art, name):
 
 # --------------------------------------------------------------------------------------
 
+def _density_map(embedding, values, width=58, height=20):
+    """Coarse ASCII map: each cell shows the local mean of `values`."""
+    glyphs = " .:-=+*#%@"
+    x, y = embedding[:, 0], embedding[:, 1]
+    xi = ((x - x.min()) / (x.max() - x.min()) * (width - 1)).astype(int)
+    yi = ((y - y.min()) / (y.max() - y.min()) * (height - 1)).astype(int)
+
+    total = np.zeros((height, width))
+    count = np.zeros((height, width))
+    np.add.at(total, (yi, xi), np.asarray(values, dtype="float64"))
+    np.add.at(count, (yi, xi), 1)
+
+    with np.errstate(invalid="ignore"):
+        mean = np.where(count > 0, total / np.maximum(count, 1), np.nan)
+    lo, hi = np.nanmin(mean), np.nanmax(mean)
+
+    lines = []
+    for r in range(height - 1, -1, -1):
+        line = ""
+        for c in range(width):
+            if count[r, c] == 0:
+                line += " "
+            else:
+                level = int((mean[r, c] - lo) / (hi - lo + 1e-9) * (len(glyphs) - 2)) + 1
+                line += glyphs[level]
+        lines.append(line)
+    return lines, lo, hi
+
+
+def show_tsne(art):
+    """The same embedding painted by different variables, to compare their structure.
+
+    If the documentation map and the incident-type map look like the same picture, the
+    layout is grouping by reporting quality. If they differ, it is not.
+    """
+    if not (PROC / "tsne_global.csv.gz").is_file():
+        raise SystemExit("tsne_global.csv.gz not found - run scripts/03_tsne_global.py")
+
+    tsne = pd.read_csv(PROC / "tsne_global.csv.gz")
+    summary = pd.read_csv(PROC / "tsne_summary.csv")
+    matrix, blocks, meta = art["matrix"], art["blocks"], art["meta"]
+
+    rule("t-SNE - PERPLEXITY SELECTION")
+    print(f"  {'perplexity':>11s} {'KL':>9s} {'trustworthiness':>16s}")
+    for _, row in summary.iterrows():
+        mark = "  <-- chosen" if row.get("chosen") else ""
+        print(f"  {int(row['perplexity']):11d} {row['kl_divergence']:9.4f} "
+              f"{row['trustworthiness']:16.4f}{mark}")
+
+    aligned = tsne.merge(matrix, on="incident_id").merge(
+        meta[["incident_id", "weighted_intensity"]], on="incident_id",
+        suffixes=("", "_meta"))
+    embedding = aligned[["x", "y"]].to_numpy()
+    nullish = [c for c in blocks.loc[blocks["is_nullish"], "column"]]
+
+    panels = [
+        ("documentation incompleteness", aligned[nullish].sum(axis=1)),
+        ("incident type: Disruption", aligned["type_disruption"]),
+        ("weighted intensity", aligned["weighted_intensity"].fillna(0)),
+    ]
+    for title, values in panels:
+        lines, lo, hi = _density_map(embedding, values)
+        rule(f"LAYOUT BY {title.upper()}")
+        for line in lines:
+            print("  " + line)
+        print(f"\n  '.' = {lo:.2f}   '@' = {hi:.2f}   blank = no incidents")
+
+    print("\n  Compare the three: if they were the same picture, the layout would be")
+    print("  organised by one thing only. Axes carry no units and inter-cluster")
+    print("  distances are not meaningful (CLAUDE.md sec.5).")
+
+
 def show_pca(art):
     """Explained variance, and the incidents sitting at each end of PC1 and PC2.
 
@@ -299,6 +372,8 @@ def main():
     parser.add_argument("--country", type=str, help="one country's sector profile")
     parser.add_argument("--pca", action="store_true",
                         help="explained variance and what PC1/PC2 encode")
+    parser.add_argument("--tsne", action="store_true",
+                        help="the embedding painted by three variables")
     parser.add_argument("--audit", action="store_true",
                         help="recompute from the raw CSVs and compare")
     args = parser.parse_args()
@@ -310,6 +385,8 @@ def main():
         show_block(art, args.block)
     elif args.country:
         show_country(art, args.country)
+    elif args.tsne:
+        show_tsne(art)
     elif args.pca:
         show_pca(art)
     elif args.audit:
