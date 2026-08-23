@@ -6,7 +6,7 @@
   <title>Threat-Shape</title>
   <!-- ?v= is bumped when an asset changes, so a browser holding an old copy is
        forced to refetch instead of silently running stale code. -->
-  <link rel="stylesheet" href="css/style.css?v=8">
+  <link rel="stylesheet" href="css/style.css?v=9">
 </head>
 <body>
 
@@ -58,7 +58,7 @@
 
     <section class="view" id="view-c">
       <h2>View C <span class="view-kind">Stacked area timeline</span></h2>
-      <p class="view-sub">incidents by type, 2000–2024</p>
+      <p class="view-sub">type occurrences by year · one incident can carry several types</p>
       <div class="view-canvas" id="view-c-canvas">
         <span class="placeholder">phase 8</span>
       </div>
@@ -74,8 +74,9 @@
   </footer>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
-  <script src="js/viewA_map.js?v=8"></script>
-  <script src="js/viewB_scatter.js?v=8"></script>
-  <script src="js/main.js?v=8"></script>
+  <script src="js/viewA_map.js?v=9"></script>
+  <script src="js/viewB_scatter.js?v=9"></script>
+  <script src="js/viewC_timeline.js?v=9"></script>
+  <script src="js/main.js?v=9"></script>
 </body>
 </html>

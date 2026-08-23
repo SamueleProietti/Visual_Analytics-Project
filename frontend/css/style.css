@@ -236,3 +236,20 @@ circle.point:hover {
 /* The size legend draws real circles at plot scale, so it must not inherit the
    swatch styling used by the categorical legends. */
 .view-legend svg { vertical-align: middle; }
+
+/* ---------- View C: stacked area timeline ---------- */
+
+path.band { fill-opacity: 0.9; }
+path.band:hover { fill-opacity: 1; }
+
+/* Axes are drawn here, unlike View B, because years and counts are real quantities. */
+.axis text { font-size: 9px; fill: var(--ink-soft); }
+.axis path, .axis line { stroke: var(--rule); }
+
+/* The caveat about type occurrences vs incident counts belongs with the legend, where
+   a reader looks to decode the bands. */
+.legend-note {
+  flex-basis: 100%;
+  font-style: italic;
+  color: var(--pending);
+}

@@ -91,9 +91,6 @@ async function loadData() {
 
     // Until the real views land in phases 6-9, each placeholder reports what its view
     // will have to work with. It is the visible proof that the API layer is wired up.
-    const years = timeline.map((d) => d.year);
-    setPlaceholder("view-c-canvas",
-      `phase 8 — ${Math.min(...years)}–${Math.max(...years)} ready`);
     // View D stays empty on purpose: analytics 6.3 must not run before a selection
     // exists (CLAUDE.md sec.6), so there is nothing to show yet.
 
@@ -149,6 +146,14 @@ async function bootstrap() {
     } catch (error) {
       setPlaceholder("view-b-canvas", `scatter failed: ${error.message}`);
       console.error("[threat-shape] View B failed:", error);
+    }
+  }
+  if (store.timeline) {
+    try {
+      ViewC.init(store.timeline);
+    } catch (error) {
+      setPlaceholder("view-c-canvas", `timeline failed: ${error.message}`);
+      console.error("[threat-shape] View C failed:", error);
     }
   }
 

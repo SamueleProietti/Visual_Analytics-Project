@@ -132,4 +132,23 @@ stato reale senza dover rileggere tutta la chat.
       **Da segnalare nel report:** `affected_entities` è quasi degenere — 53,9% a 0,
       45,0% fra 1 e 10, un solo incidente a 1.000.000. Il canale dimensione porta quindi
       poca informazione: è fedele al proposal, ma va dichiarato come limite.
-- [ ] Fase 8 — completata il: ___
+- [x] Fase 8 — completata il: 2026-08-23 — **AS index invariato: 61.452**
+      View C funzionante: area impilata 2000–2024, 7 bande, legenda propria.
+      Costruita sugli **atomi esplosi**, mai sulle 49 stringhe combinate. Totali
+      verificati contro l'API e contro il conteggio Python: identici.
+      **Palette Okabe-Ito**, lo standard per la sicurezza rispetto ai deficit di
+      visione cromatica. 7 categorie ≤ 12 (CLAUDE.md §2), quindi nessun raggruppamento
+      in famiglie: ogni tipo tiene la propria tinta. Ordine dello stack fisso, non
+      guidato dai dati, così le bande non si riordinano fra fasi diverse.
+      **Assi disegnati ed etichettati**, al contrario di View B: qui anni e conteggi
+      sono quantità reali.
+      **Avvertenza dichiarata nella vista, non solo nel report:** un incidente può
+      portare più tipi, quindi le bande sommano a **1,7×** il numero di incidenti
+      (**2,1×** nel 2023: 1.513 occorrenze contro 723 incidenti). L'asse y conta
+      *occorrenze di tipo*, non incidenti — senza dirlo sovrastimerebbe il volume
+      fino al 100%.
+      **Spunto per la Fase 17:** il rapporto occorrenze/incidenti cresce nel tempo
+      (1,54 nel 2017 → 2,09 nel 2023), quindi parte della crescita apparente della
+      timeline è crescita della *granularità di codifica*, non della minaccia.
+      I 92 incidenti senza data restano esclusi da questa vista, per costruzione.
+- [ ] Fase 9 — completata il: ___
