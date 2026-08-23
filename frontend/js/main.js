@@ -157,6 +157,11 @@ async function bootstrap() {
     }
   }
 
+  // View D is initialised into its EMPTY state on purpose. It is the visible proof of
+  // the "no default global state" rule: analytics 6.3 has nothing to say until the
+  // analyst selects something (CLAUDE.md sec.6).
+  ViewD.showEmpty();
+
   // --- phase 10 seam -------------------------------------------------------------
   // The shared selection store goes here. Until it exists, no view holds selection
   // state of its own: CLAUDE.md sec.6 requires that none of the three analytics run

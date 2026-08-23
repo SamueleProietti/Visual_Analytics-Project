@@ -151,4 +151,25 @@ stato reale senza dover rileggere tutta la chat.
       (1,54 nel 2017 → 2,09 nel 2023), quindi parte della crescita apparente della
       timeline è crescita della *granularità di codifica*, non della minaccia.
       I 92 incidenti senza data restano esclusi da questa vista, per costruzione.
-- [ ] Fase 9 — completata il: ___
+- [x] Fase 9 — completata il: 2026-08-23 — **AS index invariato: 61.452**
+      View D: layout completo, **nessun calcolo**. All'avvio 0 SVG e 0 barre, header
+      `no selection`, prompt visibile — è la prova del vincolo "no default global
+      state" (CLAUDE.md §6). L'analitica 6.3 arriva in Fase 14.
+      **Ambiguità di CLAUDE.md §5 risolta e dichiarata:** "lunghezza = magnitudine,
+      ordine = |z-score|, non magnitudine" ha senso solo se le due sono quantità
+      diverse — altrimenti coinciderebbero. Quindi: **lunghezza = differenza di
+      proporzione grezza in punti percentuali** (effect size), **ordine = |z|**
+      (affidabilità, che pesa la numerosità). Conferma nel proposal riga 83:
+      "ranks features by reliability, with bar length showing magnitude".
+      Verificato con dati fittizi: la barra più lunga (157px) finisce **ultima**
+      perché z=1,1, mentre la prima è più corta (128px) ma ha z=4,6.
+      Il valore di z è stampato accanto a ogni barra: la chiave di ordinamento deve
+      essere leggibile, non solo implicita nella posizione.
+      **Scala divergente giustificata:** qui lo zero (nessuna differenza) e il segno
+      hanno significato reale, quindi la divergente è corretta e non decorativa.
+      Coppia opponente blu/rosso di ColorBrewer RdBu, sicura per i deficit di visione
+      cromatica al contrario di rosso/verde.
+      `ViewD.demo()` disegna il layout con numeri inventati **solo da console**, con
+      scritta "DEMO DATA" sovraimpressa: un grafico plausibile di dati finti sarebbe
+      peggio di nessun grafico.
+- [ ] Fase 10 — completata il: ___

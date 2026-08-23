@@ -253,3 +253,40 @@ path.band:hover { fill-opacity: 1; }
   font-style: italic;
   color: var(--pending);
 }
+
+/* ---------- View D: contrast panel ---------- */
+
+.panel-header {
+  float: right;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--ink);
+  max-width: 330px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-header.is-muted {
+  color: var(--ink-soft);
+  font-style: italic;
+}
+
+rect.bar { fill-opacity: 0.88; }
+rect.bar:hover { fill-opacity: 1; }
+
+.bar-label { font-size: 10px; fill: var(--ink); }
+.z-value   { font-size: 9px;  fill: var(--ink-soft); }
+
+.zero-line { stroke: var(--ink); stroke-width: 1; }
+
+/* Fabricated demo data must be unmistakable - a plausible-looking chart of invented
+   numbers is worse than no chart. */
+.demo-stamp {
+  font-size: 30px;
+  font-weight: 700;
+  fill: #c62828;
+  fill-opacity: 0.16;
+  letter-spacing: 0.1em;
+  pointer-events: none;
+}
