@@ -92,8 +92,6 @@ async function loadData() {
     // Until the real views land in phases 6-9, each placeholder reports what its view
     // will have to work with. It is the visible proof that the API layer is wired up.
     const years = timeline.map((d) => d.year);
-    setPlaceholder("view-b-canvas",
-      `phase 7 — ${incidents.length.toLocaleString("en")} incidents ready`);
     setPlaceholder("view-c-canvas",
       `phase 8 — ${Math.min(...years)}–${Math.max(...years)} ready`);
     // View D stays empty on purpose: analytics 6.3 must not run before a selection
@@ -143,6 +141,14 @@ async function bootstrap() {
     } catch (error) {
       setPlaceholder("view-a-canvas", `map failed: ${error.message}`);
       console.error("[threat-shape] View A failed:", error);
+    }
+  }
+  if (store.incidents) {
+    try {
+      ViewB.init(store.incidents);
+    } catch (error) {
+      setPlaceholder("view-b-canvas", `scatter failed: ${error.message}`);
+      console.error("[threat-shape] View B failed:", error);
     }
   }
 

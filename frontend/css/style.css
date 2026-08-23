@@ -221,3 +221,18 @@ path.country:hover { fill-opacity: 0.75; }
   border-radius: 2px;
   display: inline-block;
 }
+
+/* ---------- View B: t-SNE scatter ---------- */
+
+circle.point {
+  cursor: crosshair;              /* hints at the lasso arriving in phase 13 */
+}
+
+circle.point:hover {
+  stroke: #1a1a1a;
+  stroke-width: 1.2;
+}
+
+/* The size legend draws real circles at plot scale, so it must not inherit the
+   swatch styling used by the categorical legends. */
+.view-legend svg { vertical-align: middle; }

@@ -117,4 +117,19 @@ stato reale senza dover rileggere tutta la chat.
       divergente quando una selezione esiste.
       **Corretto:** l'`<svg>` inline stava sulla baseline del testo e faceva scrollare
       il canvas a dimensione fissa — violazione graded. `display:block` lo risolve.
-- [ ] Fase 7 — completata il: ___
+- [x] Fase 7 — completata il: 2026-08-23 — **AS index invariato: 61.452**
+      View B funzionante: 3.414 punti, colore sequenziale a tinta unica su
+      `weighted_intensity`, dimensione su `log1p(affected_entities)`, legenda propria.
+      **Nessun asse disegnato e nessun tick**: le coordinate t-SNE non hanno unità e le
+      distanze fra cluster non sono significative (CLAUDE.md §5). Al loro posto una
+      didascalia che lo dichiara esplicitamente.
+      **Dimensione: doppia compressione motivata.** `log1p` perché la variabile grezza
+      va da 0 a 1.000.000 e un solo incidente schiaccerebbe tutti gli altri; poi `sqrt`
+      sul raggio, così l'**area** — ciò che l'occhio integra — è proporzionale al valore
+      log-compresso e non al suo quadrato. Risultato misurato: un fattore 1.000.000 nei
+      dati diventa 16× nell'area, e i due gruppi dominanti restano distinguibili
+      (r 2,0 con 0 entità contro 3,3 con 1).
+      **Da segnalare nel report:** `affected_entities` è quasi degenere — 53,9% a 0,
+      45,0% fra 1 e 10, un solo incidente a 1.000.000. Il canale dimensione porta quindi
+      poca informazione: è fedele al proposal, ma va dichiarato come limite.
+- [ ] Fase 8 — completata il: ___
