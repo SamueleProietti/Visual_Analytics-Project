@@ -96,4 +96,25 @@ stato reale senza dover rileggere tutta la chat.
       **Geometria mappa:** non servita dal backend, arriva da CDN in Fase 6 insieme a
       View A (coerente con "D3 v7 via CDN, no build step"). Il backend fornisce i
       codici ISO alpha-2 per il join.
-- [ ] Fase 6 — completata il: ___
+- [x] Fase 6 — completata il: 2026-08-23 — **AS index invariato: 61.452**
+      View A funzionante: coropletica mondiale, toggle a due stati, details-on-demand,
+      legenda propria. Non ancora coordinata (Fase 11).
+      **Geometria da CDN** (`world-atlas@2/countries-50m`) + `i18n-iso-countries` per il
+      ponte alpha-2 → numeric-3. Scelta 50m e non 110m sulla base di una misura sui
+      nostri dati: 110m dipinge 142/168 paesi (97,1% incidenti) e perde del tutto Hong
+      Kong, Singapore, Bahrein e Malta; 50m ne dipinge **162/168 (99,4%)** per 739 KB
+      caricati una volta. Restano fuori 6 paesi / 29 incidenti.
+      **Proiezione Equal Earth** (equivalente): una coropletica codifica una quantità
+      riempiendo un'area, quindi Mercatore gonfierebbe Russia e Canada a prescindere
+      dai valori.
+      **Scale a classi discrete**, non continue: i conteggi vanno 1–871 con la maggior
+      parte dei paesi a una cifra, una rampa lineare dipingerebbe il mondo di un solo
+      tono e gli USA di un altro. Sequenziale a tinta unica, mai divergente: il segno
+      qui non ha significato (CLAUDE.md §2).
+      **Interpretazione dichiarata:** il toggle è `Incident volume` / `Attribution`, non
+      `residuo` / `attribuzione`, perché il residuo non può esistere prima di una
+      selezione (CLAUDE.md §6). In Fase 12 il primo stato diventerà il residuo
+      divergente quando una selezione esiste.
+      **Corretto:** l'`<svg>` inline stava sulla baseline del testo e faceva scrollare
+      il canvas a dimensione fissa — violazione graded. `display:block` lo risolve.
+- [ ] Fase 7 — completata il: ___

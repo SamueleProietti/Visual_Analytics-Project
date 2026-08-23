@@ -92,8 +92,6 @@ async function loadData() {
     // Until the real views land in phases 6-9, each placeholder reports what its view
     // will have to work with. It is the visible proof that the API layer is wired up.
     const years = timeline.map((d) => d.year);
-    setPlaceholder("view-a-canvas",
-      `phase 6 — ${countries.length} countries ready`);
     setPlaceholder("view-b-canvas",
       `phase 7 — ${incidents.length.toLocaleString("en")} incidents ready`);
     setPlaceholder("view-c-canvas",
@@ -136,6 +134,17 @@ async function bootstrap() {
     return;
   }
   await loadData();
+
+  // View A is the entry view, so it renders as soon as the data is in. Views B, C and D
+  // follow in phases 7-9. None of them may compute an analytic yet.
+  if (store.countries) {
+    try {
+      await ViewA.init(store.countries);
+    } catch (error) {
+      setPlaceholder("view-a-canvas", `map failed: ${error.message}`);
+      console.error("[threat-shape] View A failed:", error);
+    }
+  }
 
   // --- phase 10 seam -------------------------------------------------------------
   // The shared selection store goes here. Until it exists, no view holds selection

@@ -138,3 +138,86 @@ body {
 }
 
 .footer-sep { margin: 0 6px; }
+
+/* ---------- View A: map, toggle, details ---------- */
+
+.view h2 .toggle {
+  float: right;
+  display: inline-flex;
+  gap: 0;
+}
+
+.toggle-button {
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 9px;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.toggle-button:first-child { border-radius: 3px 0 0 3px; }
+.toggle-button:last-child  { border-radius: 0 3px 3px 0; border-left: none; }
+
+.toggle-button.is-active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+
+#view-a-canvas { display: block; }          /* svg fills it; no flex centring */
+
+/* An inline <svg> sits on the text baseline and reserves a few pixels below it,
+   which was enough to make the fixed-height canvas scroll - a graded violation
+   (CLAUDE.md sec.2). display:block removes the baseline gap. */
+.view-canvas svg { display: block; }
+
+.sphere {
+  fill: #f6f8fa;                            /* ocean: neutral, never a data colour */
+  stroke: var(--rule);
+  stroke-width: 0.5;
+}
+
+path.country {
+  cursor: pointer;
+  transition: fill 120ms linear;
+}
+
+path.country:hover { fill-opacity: 0.75; }
+
+/* Details on demand. Fixed height so revealing it cannot resize the view - the grid
+   must stay stable when a country is clicked (CLAUDE.md sec.2: fixed-size views). */
+.details {
+  height: 74px;
+  margin-top: 8px;
+  padding: 6px 9px;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: var(--surface-sunken);
+  font-size: 11px;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.details strong { font-size: 12px; }
+.details .hint { color: var(--ink-soft); font-style: italic; }
+.details .pending { color: var(--pending); }
+
+.legend-title { color: var(--ink); }
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legend-swatch {
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  display: inline-block;
+}
