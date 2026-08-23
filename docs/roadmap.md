@@ -81,4 +81,19 @@ stato reale senza dover rileggere tutta la chat.
       dei dati: le viste coordinate non devono essere attese concordi su quell'asse.
       **Nota:** 673 incidenti hanno profili di feature identici (il gruppo maggiore ne
       conta 40), quindi coordinate ripetute sono attese e non un errore.
-- [ ] Fase 5 — completata il: ___
+- [x] Fase 5 — completata il: 2026-08-23 — **AS index invariato: 61.452**
+      5 endpoint statici: `/api/health`, `/api/incidents` (3.414), `/api/timeline`
+      (114 celle anno×tipo), `/api/countries` (168), `/api/features` (123).
+      `backend/app/data.py` carica gli artefatti una volta sola e li tiene in memoria.
+      Frontend collegato: carica i 4 dataset in ~525 ms e mostra i conteggi.
+      View D resta vuota per costruzione (CLAUDE.md §6).
+      **Bug trovato e corretto:** il codice ISO della Namibia è `NA`, che pandas rilegge
+      come valore mancante — la Namibia spariva dalla mappa. I lettori dei file con
+      codici paese usano `keep_default_na=False`; `01_preprocess.py` ora avvisa.
+      **Copertura mappa:** 92,2% delle osservazioni su 168 paesi. I 249 incidenti
+      localizzati solo su regioni/organizzazioni **non sono raggiungibili col click
+      sulla mappa** — la Fase 11 deve saperlo: la selezione geografica non è esaustiva.
+      **Geometria mappa:** non servita dal backend, arriva da CDN in Fase 6 insieme a
+      View A (coerente con "D3 v7 via CDN, no build step"). Il backend fornisce i
+      codici ISO alpha-2 per il join.
+- [ ] Fase 6 — completata il: ___

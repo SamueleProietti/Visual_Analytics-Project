@@ -9,6 +9,22 @@
 
 const API = {
   health: "/api/health",
+  incidents: "/api/incidents",
+  timeline: "/api/timeline",
+  countries: "/api/countries",
+  features: "/api/features",
+};
+
+/**
+ * Everything the four views draw from, fetched once at startup.
+ * Views read from here rather than re-fetching: a lasso or a map click must not cost a
+ * round trip, and phase 10's selection store will filter this same in-memory copy.
+ */
+const store = {
+  incidents: null,
+  timeline: null,
+  countries: null,
+  features: null,
 };
 
 /**
@@ -60,7 +76,49 @@ async function checkBackend() {
   }
 }
 
-function bootstrap() {
+/** Load the four static datasets in parallel and report what arrived. */
+async function loadData() {
+  const started = performance.now();
+  try {
+    const [incidents, timeline, countries, features] = await Promise.all([
+      getJSON(API.incidents),
+      getJSON(API.timeline),
+      getJSON(API.countries),
+      getJSON(API.features),
+    ]);
+    Object.assign(store, { incidents, timeline, countries, features });
+    const elapsed = Math.round(performance.now() - started);
+
+    // Until the real views land in phases 6-9, each placeholder reports what its view
+    // will have to work with. It is the visible proof that the API layer is wired up.
+    const years = timeline.map((d) => d.year);
+    setPlaceholder("view-a-canvas",
+      `phase 6 — ${countries.length} countries ready`);
+    setPlaceholder("view-b-canvas",
+      `phase 7 — ${incidents.length.toLocaleString("en")} incidents ready`);
+    setPlaceholder("view-c-canvas",
+      `phase 8 — ${Math.min(...years)}–${Math.max(...years)} ready`);
+    // View D stays empty on purpose: analytics 6.3 must not run before a selection
+    // exists (CLAUDE.md sec.6), so there is nothing to show yet.
+
+    console.info(`[threat-shape] datasets loaded in ${elapsed} ms`, {
+      incidents: incidents.length, timeline: timeline.length,
+      countries: countries.length, features: features.length,
+    });
+    return elapsed;
+  } catch (error) {
+    setStatus(`failed to load data — ${error.message}`, "error");
+    console.error("[threat-shape] data load failed:", error);
+    return null;
+  }
+}
+
+function setPlaceholder(id, text) {
+  const placeholder = document.querySelector(`#${id} .placeholder`);
+  if (placeholder) placeholder.textContent = text;
+}
+
+async function bootstrap() {
   if (typeof d3 === "undefined") {
     // The CDN is the only external dependency; failing loudly here beats four views
     // silently rendering nothing later.
@@ -70,7 +128,14 @@ function bootstrap() {
   }
   console.info(`[threat-shape] d3 v${d3.version} loaded`);
 
-  checkBackend();
+  const health = await checkBackend();
+  if (!health) return;
+  if (!health.artifacts_ready) {
+    setStatus(`missing artifacts: ${health.missing_artifacts.join(", ")} — `
+      + `run the scripts in scripts/`, "error");
+    return;
+  }
+  await loadData();
 
   // --- phase 10 seam -------------------------------------------------------------
   // The shared selection store goes here. Until it exists, no view holds selection

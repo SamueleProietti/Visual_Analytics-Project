@@ -8,6 +8,7 @@ Turns the four raw EuRepoC CSVs into the cached artifacts every later phase read
     data/processed/incidents_meta.csv.gz     3,414 rows    year, intensity, attribution
     data/processed/incident_receiver.csv.gz  long          incident x country x sector
     data/processed/contingency_country_sector.csv.gz       country x sector counts
+    data/processed/country_codes.csv                       country -> ISO alpha-2
 
 This script only reshapes data. It computes none of the three analytics: per
 CLAUDE.md sec.6 those may not run before a selection exists, and standardisation plus
@@ -222,6 +223,67 @@ def build_incident_receiver(g, receiver):
     return long
 
 
+def attach_country_codes(long, g):
+    """Resolve each targeted country to an ISO 3166-1 alpha-2 code for View A.
+
+    The codes are not guessed from the names: EuRepoC ships
+    `receiver_country_alpha_2_code` alongside `receiver_country`, positionally aligned
+    on every single row (verified: 100%). So the mapping is read out of the release
+    itself rather than reconstructed by string matching, which would have had to guess
+    at entries like "Korea, Republic of" or "Taiwan, Province of China".
+
+    Codes that are not two ASCII letters are EuRepoC's own pseudo-codes for supranational
+    entities - EUROPE, NATO, MENA, ASIA and 17 others. Those are left unmapped on
+    purpose: they are real analytical values, but a choropleth cannot paint them.
+    """
+    rule("2b. COUNTRY CODES")
+
+    name_to_code = {}
+    paired = g[["receiver_country", "receiver_country_alpha_2_code"]].dropna()
+    for _, row in paired.iterrows():
+        names = [p.strip() for p in str(row["receiver_country"]).split(SEP)]
+        codes = [p.strip() for p in str(row["receiver_country_alpha_2_code"]).split(SEP)]
+        if len(names) != len(codes):
+            raise ValueError("country name/code length mismatch in the raw data")
+        for name, code in zip(names, codes):
+            if name not in name_to_code and len(code) == 2 and code.isalpha():
+                name_to_code[name] = code.upper()
+
+    long = long.copy()
+    long["country_code"] = long["country"].map(name_to_code)
+
+    mapped = int(long["country_code"].notna().sum())
+    print(f"  names resolved to an ISO code: {len(name_to_code)}")
+    print(f"  observations mappable        : {mapped}/{len(long)} ({mapped / len(long):.1%})")
+    print(f"  distinct countries on the map: {long['country_code'].nunique()}")
+
+    unmapped = long.loc[long["country_code"].isna(), "country"].value_counts()
+    print(f"\n  not paintable ({len(long) - mapped} observations, "
+          f"{unmapped.size} distinct values) - top 5:")
+    for name, n in unmapped.head(5).items():
+        print(f"    {n:5d}  {name}")
+
+    # Incidents whose every target is a region or an organisation can never be reached by
+    # clicking the map. Phase 11 needs to know: map selection is not exhaustive.
+    orphan = long.groupby("incident_id")["country_code"].apply(lambda s: s.isna().all()).sum()
+    print(f"\n  incidents with NO paintable location: {orphan} of "
+          f"{long.incident_id.nunique()} - unreachable by map click, by construction")
+
+    # Namibia's ISO code is literally "NA", which pandas reads back as a missing value
+    # unless the reader disables its default NaN strings. Caught by noticing the country
+    # count drop from 168 to 167 between writing and re-reading. Anything that reads
+    # these artifacts must pass keep_default_na=False - see backend/app/data.py.
+    dangerous = sorted({c for c in name_to_code.values()
+                        if pd.isna(pd.read_csv(pd.io.common.StringIO(f"x\n{c}\n")).iloc[0, 0])})
+    if dangerous:
+        print(f"\n  WARNING: codes pandas reads as NaN by default: {dangerous}")
+        print("  readers must use keep_default_na=False, na_values=[''] on these files.")
+
+    codes = (pd.DataFrame({"country": list(name_to_code), "code": list(name_to_code.values())})
+             .sort_values("country").reset_index(drop=True))
+    return long, codes
+
+
 def build_contingency(long):
     """Country x sector counts - the observed table analytics 6.1 standardises.
 
@@ -351,6 +413,7 @@ def main():
 
     matrix, blocks = build_feature_matrix(g)
     long = build_incident_receiver(g, receiver)
+    long, country_codes = attach_country_codes(long, g)
     contingency = build_contingency(long)
     meta = build_incidents_meta(g)
 
@@ -363,6 +426,7 @@ def main():
         ("incidents_meta.csv.gz", meta, True),
         ("incident_receiver.csv.gz", long, True),
         ("contingency_country_sector.csv.gz", contingency, True),
+        ("country_codes.csv", country_codes, False),
     ]
     for filename, frame, compress in artifacts:
         path = OUT / filename

@@ -15,10 +15,15 @@ Then open http://127.0.0.1:8000
 
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
 from fastapi import FastAPI
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from .models import DatasetStatus, HealthResponse
+from . import data
+from .models import (CountrySummary, DatasetStatus, FeatureBlock, HealthResponse,
+                     Incident, TimelinePoint)
 
 # backend/app/main.py -> backend/app -> backend -> repository root
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -51,6 +56,25 @@ app = FastAPI(
     version="0.1.0",
 )
 
+# /api/incidents is ~780 KB of JSON and gzips to roughly a quarter of that. The
+# frontend fetches it once at startup, so the compression is worth one line.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
+
+
+@app.middleware("http")
+async def no_store_frontend(request, call_next):
+    """Stop the browser caching the frontend sources.
+
+    StaticFiles serves css/js with an ETag, and the browser then keeps reusing its copy
+    after an edit - which cost a confusing debugging round in phase 5, where the server
+    had the new main.js and the page was still running the old one. The API responses
+    are already dynamic, so this only targets the static assets.
+    """
+    response = await call_next(request)
+    if not request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store, must-revalidate"
+    return response
+
 
 @app.get("/api/health", response_model=HealthResponse, tags=["meta"])
 def health() -> HealthResponse:
@@ -71,15 +95,70 @@ def health() -> HealthResponse:
             )
         )
 
+    missing = data.missing_artifacts()
     return HealthResponse(
         status="ok",
-        phase=1,
+        phase=5,
         datasets=datasets,
         data_ready=all(d.present for d in datasets),
         n_incidents=N_INCIDENTS,
         n_raw_analytical_columns=N_RAW_ANALYTICAL_COLUMNS,
         as_index=AS_INDEX,
+        artifacts_ready=not missing,
+        missing_artifacts=missing,
     )
+
+
+def _records(frame: pd.DataFrame) -> list[dict]:
+    """DataFrame -> JSON-safe records.
+
+    JSON has no NaN, and pandas uses it for every kind of missing value, so anything
+    absent becomes None here. Without this the response body would contain bare NaN
+    tokens, which is invalid JSON and fails in the browser rather than on the server.
+    """
+    return frame.replace({np.nan: None}).astype(object).where(
+        pd.notna(frame), None).to_dict(orient="records")
+
+
+@app.get("/api/incidents", response_model=list[Incident], tags=["static data"])
+def get_incidents() -> list[dict]:
+    """Every incident with its global t-SNE position - the payload View B draws.
+
+    Returns the whole corpus in one response: 3,414 records is small, and the frontend
+    needs all of them anyway to draw the scatter. Filtering by selection happens on the
+    client, so a lasso does not require a round trip.
+    """
+    columns = ["incident_id", "name", "year", "weighted_intensity",
+               "affected_entities_value", "not_attributed", "x", "y"]
+    return _records(data.incidents()[columns])
+
+
+@app.get("/api/timeline", response_model=list[TimelinePoint], tags=["static data"])
+def get_timeline() -> list[dict]:
+    """Incident counts per year and type, for View C's stacked area.
+
+    Built from the exploded type atoms, not the 49 raw combined strings. One incident
+    can carry several types, so yearly totals across types exceed the incident count:
+    the chart shows how often each type occurs, not a partition of incidents.
+    """
+    return _records(data.timeline()[["year", "type", "count"]])
+
+
+@app.get("/api/countries", response_model=list[CountrySummary], tags=["static data"])
+def get_countries() -> list[dict]:
+    """Per-country totals keyed by ISO alpha-2, for View A.
+
+    Counts only - no residual. Analytics 6.1 runs on the live selection from phase 12,
+    and CLAUDE.md sec.6 forbids a default global result existing before any interaction.
+    """
+    return _records(data.country_summary())
+
+
+@app.get("/api/features", response_model=list[FeatureBlock], tags=["static data"])
+def get_features() -> list[dict]:
+    """The 123 indicators and their readable labels, for View D's bar captions."""
+    columns = ["column", "block", "atom", "label", "is_nullish"]
+    return _records(data.feature_blocks()[columns])
 
 
 # Mounted last: StaticFiles on "/" is a catch-all, so any route declared after it would
