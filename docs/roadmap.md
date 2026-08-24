@@ -280,4 +280,32 @@ stato reale senza dover rileggere tutta la chat.
       posizioni. Ora testa i `cx`/`cy` correnti.
       **Verificato:** lasso di 861 incidenti → perplexity 30, trustworthiness 0,980;
       12 incidenti → rifiuto esplicito; clear ripristina il layout globale e toglie il banner.
-- [ ] Fase 14 — completata il: ___
+- [x] Fase 14 — completata il: 2026-08-23 — **AS index invariato: 61.452**
+      Analitica 6.3: `POST /api/contrast` + **View D finalmente popolata**. Tutte e tre
+      le analitiche sono ora vive.
+      **Test z per due proporzioni** con varianza poolata:
+      `z = (p_a - p_b) / sqrt(p_pool·(1-p_pool)·(1/n_a + 1/n_b))`. La poolatura è ciò che
+      rende il test valido fra gruppi di dimensioni molto diverse — il caso normale qui,
+      81 contro 3.333. Applica la lezione della Fase 13: il confronto fra gruppi di
+      taglia diversa richiede una statistica che le incorpori, non una che le ignori.
+      **Due modalità decise dalla selezione, non da un controllo:** 2 paesi → `a-vs-b`
+      diretto, altrimenti `vs-rest`. L'header dichiara sempre quale è in vigore.
+      **Bug trovato e corretto due volte (backend, poi frontend).** Ordinando per |z|
+      soltanto, `impact: Endpoint Denial of Service` finiva **primo** con +2,3pp e test
+      di validità fallito, sopra `target: Critical infrastructure` a +21,7pp. Un z
+      calcolato dove l'approssimazione normale non vale può essere arbitrariamente
+      grande: non è un risultato più forte, è un numero che non va letto come z. Ora
+      l'ordine è `(affidabile, |z|)`. Le inaffidabili **restano visibili**, sbiadite,
+      tratteggiate e con ⚠ accanto allo z — marcate, non soppresse (§6.1 applicata a 6.3).
+      La correzione è servita in due punti: il backend ordinava bene e `render()` di
+      View D ri-ordinava disfacendo il lavoro.
+      **Prova del design a schermo:** in `"IT" vs rest of world` la barra più lunga
+      (155px, Critical infrastructure, z 3,9) sta in **seconda** posizione, sotto una
+      barra più corta (137px, Corporate Targets, z 4,7). Lunghezza = magnitudine,
+      ordine = affidabilità, esattamente come prescritto.
+      **Token anti-sorpasso** sulle richieste: una risposta lenta non può sovrascrivere
+      un risultato più recente.
+      **Materiale per la Fase 17:** IT vs DE → `init: Non-state-group` +27,6pp (z 4,6) e
+      `init: Not attributed` −20,3pp (z −3,5): gli incidenti italiani sono attribuiti a
+      gruppi non statali molto più di quelli tedeschi, che restano più spesso anonimi.
+- [ ] Fase 15 — completata il: ___

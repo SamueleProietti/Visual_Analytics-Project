@@ -234,3 +234,106 @@ def local_reprojection(incident_ids):
         "perplexity": round(perplexity, 2),
         "trustworthiness": round(score, 4),
     }
+
+
+# --------------------------------------------------------------------------------------
+# 6.3 - contrastive z-scores
+# --------------------------------------------------------------------------------------
+
+# A two-proportion z-test needs enough expected successes AND failures in both groups
+# for the normal approximation to hold. The conventional rule is n*p >= 5 and
+# n*(1-p) >= 5 on each side; features that fail it are returned with a flag rather than
+# dropped, the same treatment 6.1 gives a thin contingency cell.
+MIN_GROUP = 20          # below this a group is too small to contrast at all
+MIN_SUCCESSES = 5.0
+
+
+def contrastive_z(selection_ids, comparison_ids=None):
+    """Analytics 6.3 - which features separate the selection from its comparison.
+
+    For every one of the 123 indicators, the proportion carrying it in group A is
+    compared with the proportion in group B using the standard two-proportion z-test:
+
+        p_pool = (x_a + x_b) / (n_a + n_b)
+        se     = sqrt(p_pool * (1 - p_pool) * (1/n_a + 1/n_b))
+        z      = (p_a - p_b) / se
+
+    Pooling the variance is what makes this safe across groups of wildly different size,
+    which is the normal case here - one country against the rest of the corpus is 81
+    against 3,333. The z already carries the sample sizes, so a large difference over
+    few incidents lands with a small z and sinks in the ranking. That separation is the
+    panel's whole purpose: `difference` drives bar length, `z` drives the order.
+
+    comparison_ids is the direct A-vs-B mode (sec.6.3, two countries selected). Left
+    None, group B is the complement of the selection - the vs-rest mode.
+    """
+    if not selection_ids:
+        raise ValueError("contrastive_z requires a non-empty selection")
+
+    matrix = data.feature_matrix()
+    blocks = data.feature_blocks()
+    columns = list(blocks["column"])
+
+    group_a = matrix[matrix["incident_id"].isin(selection_ids)]
+    if comparison_ids is None:
+        group_b = matrix[~matrix["incident_id"].isin(selection_ids)]
+        mode = "vs-rest"
+    else:
+        group_b = matrix[matrix["incident_id"].isin(comparison_ids)]
+        mode = "a-vs-b"
+
+    n_a, n_b = len(group_a), len(group_b)
+    if n_a < MIN_GROUP or n_b < MIN_GROUP:
+        return {
+            "ok": False,
+            "reason": f"groups too small to contrast: {n_a} vs {n_b}, minimum {MIN_GROUP}",
+            "mode": mode, "n_a": n_a, "n_b": n_b, "features": [],
+        }
+
+    counts_a = group_a[columns].sum()
+    counts_b = group_b[columns].sum()
+    labels = dict(zip(blocks["column"], blocks["label"]))
+    nullish = dict(zip(blocks["column"], blocks["is_nullish"]))
+
+    features = []
+    for column in columns:
+        x_a, x_b = float(counts_a[column]), float(counts_b[column])
+        p_a, p_b = x_a / n_a, x_b / n_b
+        pooled = (x_a + x_b) / (n_a + n_b)
+
+        se = np.sqrt(pooled * (1 - pooled) * (1 / n_a + 1 / n_b))
+        if se == 0:
+            continue          # the feature is constant across both groups: no contrast
+
+        # Reliability on the same footing as 6.1: enough expected successes and
+        # failures on both sides for the normal approximation to mean anything.
+        expected = [n_a * pooled, n_a * (1 - pooled), n_b * pooled, n_b * (1 - pooled)]
+        features.append({
+            "column": column,
+            "label": labels.get(column, column),
+            "difference": round(p_a - p_b, 5),
+            "z": round(float((p_a - p_b) / se), 3),
+            "n_selection": int(x_a),
+            "n_comparison": int(x_b),
+            "reliable": bool(min(expected) >= MIN_SUCCESSES),
+            "is_nullish": bool(nullish.get(column, False)),
+        })
+
+    # Reliable features rank first, then by |z| within each group.
+    #
+    # Sorting on |z| alone put "impact: Endpoint Denial of Service" at the top of an
+    # Italy contrast on a 2.3pp difference that fails the validity test, ahead of
+    # "target: Critical infrastructure" at 21.7pp. A z computed where the normal
+    # approximation does not hold is not a stronger finding than one where it does - it
+    # is a number that should not be read as a z at all. The unreliable features are
+    # still returned and still shown, flagged, as sec.6.1 requires: marked, not
+    # suppressed. They simply do not get to occupy the positions the eye reads first.
+    features.sort(key=lambda f: (not f["reliable"], -abs(f["z"])))
+
+    reliable = [f for f in features if f["reliable"]]
+    return {
+        "ok": True, "reason": "", "mode": mode,
+        "n_a": n_a, "n_b": n_b, "features": features,
+        "n_reliable": len(reliable),
+        "n_features": len(features),
+    }

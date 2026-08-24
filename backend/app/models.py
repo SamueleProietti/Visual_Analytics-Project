@@ -109,6 +109,10 @@ class SelectionRequest(BaseModel):
                                     description="Ids of the currently selected incidents")
     country_code: str | None = Field(
         default=None, description="When set, also return that country's sector breakdown")
+    comparison_ids: list[int] | None = Field(
+        default=None,
+        description="Group B for a direct A-vs-B contrast. Omitted, group B is the "
+                    "complement of the selection (the vs-rest mode).")
 
 
 class CountryResidual(BaseModel):
@@ -168,3 +172,37 @@ class ReprojectResponse(BaseModel):
         default=None,
         description="How much of each point's real neighbourhood survived the projection")
     points: list[ProjectedPoint] = Field(default_factory=list)
+
+
+class ContrastFeature(BaseModel):
+    """One indicator's separation between the two groups.
+
+    `difference` and `z` are deliberately different quantities: the bar length shows the
+    raw gap in percentage points, the ranking uses z, which weighs how many incidents
+    that gap rests on. A large difference over few incidents draws a long bar and sits
+    low in the list.
+    """
+
+    column: str
+    label: str
+    difference: float = Field(description="p(A) - p(B), signed, in [-1, 1]")
+    z: float = Field(description="Two-proportion z-test statistic")
+    n_selection: int
+    n_comparison: int
+    reliable: bool = Field(
+        description="False when the normal approximation does not hold; shown flagged")
+    is_nullish: bool = Field(
+        description="True for 'Not available'-style indicators - a documentation signal")
+
+
+class ContrastResponse(BaseModel):
+    """Payload of POST /api/contrast - analytics 6.3."""
+
+    ok: bool
+    reason: str = ""
+    mode: str = Field(description="'vs-rest' or 'a-vs-b'")
+    n_a: int
+    n_b: int
+    n_reliable: int = 0
+    n_features: int = 0
+    features: list[ContrastFeature] = Field(default_factory=list)

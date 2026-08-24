@@ -22,7 +22,8 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from . import analytics, data
-from .models import (CountrySummary, DatasetStatus, FeatureBlock, HealthResponse,
+from .models import (ContrastResponse, CountrySummary, DatasetStatus, FeatureBlock,
+                     HealthResponse,
                      Incident, ReprojectResponse, ResidualsResponse,
                      SelectionRequest, TimelinePoint)
 
@@ -99,7 +100,7 @@ def health() -> HealthResponse:
     missing = data.missing_artifacts()
     return HealthResponse(
         status="ok",
-        phase=13,
+        phase=14,
         datasets=datasets,
         data_ready=all(d.present for d in datasets),
         n_incidents=N_INCIDENTS,
@@ -204,6 +205,25 @@ def post_reproject(request: SelectionRequest) -> ReprojectResponse:
         raise HTTPException(status_code=400, detail="a selection is required")
     try:
         return ReprojectResponse(**analytics.local_reprojection(ids))
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.post("/api/contrast", response_model=ContrastResponse, tags=["analytics"])
+def post_contrast(request: SelectionRequest) -> ContrastResponse:
+    """Analytics 6.3 — which features separate the selection from its comparison.
+
+    Two-proportion z-test per indicator. Supplying comparison_ids switches to the direct
+    A-vs-B mode; omitting it contrasts against the complement. As with the other two
+    analytics there is no parameterless form: a contrast requires two groups, and one of
+    them has to be chosen by the analyst.
+    """
+    ids = set(request.incident_ids)
+    if not ids:
+        raise HTTPException(status_code=400, detail="a selection is required")
+    comparison = set(request.comparison_ids) if request.comparison_ids else None
+    try:
+        return ContrastResponse(**analytics.contrastive_z(ids, comparison))
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 

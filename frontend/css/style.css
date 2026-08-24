@@ -359,3 +359,7 @@ path.country.is-unreliable {
   letter-spacing: 0.02em;
   pointer-events: none;
 }
+
+/* Contrast bars that fail the two-proportion validity test: shown, faded and marked,
+   never removed - sec.6.1's rule applied to 6.3. */
+rect.bar.is-unreliable-bar { stroke: #8a8a8a; stroke-width: 0.8; stroke-dasharray: 2 2; }

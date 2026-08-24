@@ -55,7 +55,16 @@ const ViewD = (() => {
     if (!items || !items.length) return showEmpty("nothing to contrast");
 
     // Reliability decides who is shown and in what order; magnitude only sets length.
-    const ranked = [...items].sort((a, b) => Math.abs(b.z) - Math.abs(a.z))
+    //
+    // The `reliable` term is not optional. Sorting on |z| alone re-broke what the
+    // backend had already ordered correctly, putting a 2.3pp difference that fails the
+    // two-proportion validity test above a 21.7pp one that passes - because a z
+    // computed where the normal approximation does not hold can be arbitrarily large.
+    // Unreliable features stay in the list, flagged; they just do not take the
+    // positions the eye reads first.
+    const ranked = [...items]
+      .sort((a, b) => (a.reliable === false) - (b.reliable === false)
+        || Math.abs(b.z) - Math.abs(a.z))
       .slice(0, MAX_BARS);
 
     const host = d3.select("#view-d-canvas");
@@ -84,6 +93,8 @@ const ViewD = (() => {
       .attr("width", (d) => Math.abs(x(d.difference) - x(0)))
       .attr("height", y.bandwidth())
       .attr("fill", (d) => (d.difference >= 0 ? OVER : UNDER))
+      .attr("fill-opacity", (d) => (d.reliable === false ? 0.4 : 0.88))
+      .classed("is-unreliable-bar", (d) => d.reliable === false)
       .append("title")
       .text((d) => `${d.label}\n`
         + `${(d.difference * 100).toFixed(1)} percentage points\n`
@@ -102,7 +113,7 @@ const ViewD = (() => {
       .attr("class", "z-value")
       .attr("x", innerW + 4).attr("y", (d) => y(d.label) + y.bandwidth() / 2)
       .attr("dy", "0.35em")
-      .text((d) => "z " + d.z.toFixed(1));
+      .text((d) => "z " + d.z.toFixed(1) + (d.reliable === false ? " ⚠" : ""));
 
     plot.append("line").attr("class", "zero-line")
       .attr("x1", x(0)).attr("x2", x(0)).attr("y1", 0).attr("y2", innerH);
@@ -162,13 +173,67 @@ const ViewD = (() => {
    * leaving the target implicit, and stating it before the bars exist makes the
    * distinction visible: the question is defined, the answer is not yet computed.
    */
-  function applySelection(snapshot) {
+  let pending = 0;
+
+  /**
+   * Analytics 6.3 — fetch the contrast for the current selection and draw it.
+   *
+   * Two modes, decided by the selection itself rather than by a control: two countries
+   * selected means a direct A-vs-B contrast, anything else is vs-rest (sec.6.3). The
+   * header states which one is in force, so the comparison target is never implicit.
+   */
+  async function applySelection(snapshot) {
     if (snapshot.empty) return showEmpty();
+
     setHeader(snapshot.mode);
     d3.select("#view-d-canvas").html(
-      `<span class="placeholder">${snapshot.selected.length} incidents selected`
-      + ` · contrastive z-scores arrive in phase 14</span>`);
-    d3.select("#view-d-legend").html("");
+      `<span class="placeholder">contrasting ${snapshot.selected.length} incidents…</span>`);
+
+    const token = ++pending;
+    try {
+      const body = { incident_ids: [...snapshot.ids] };
+
+      // Direct A-vs-B: group B is the second country's incidents, not the complement.
+      const countries = SelectionStore.getState().countries;
+      if (countries.length === 2) {
+        const [a, b] = countries;
+        const inA = snapshot.selected.filter((d) => (d.countries || []).includes(a));
+        const groupB = snapshot.selected.filter((d) => (d.countries || []).includes(b)
+          && !(d.countries || []).includes(a));
+        if (inA.length && groupB.length) {
+          body.incident_ids = inA.map((d) => d.incident_id);
+          body.comparison_ids = groupB.map((d) => d.incident_id);
+        }
+      }
+
+      const response = await fetch("/api/contrast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      // A slower earlier request must not overwrite a newer result.
+      if (token !== pending) return;
+      if (!response.ok) throw new Error(`${response.status} on /api/contrast`);
+      const result = await response.json();
+      if (token !== pending) return;
+
+      if (!result.ok) return showEmpty(result.reason);
+
+      render(result.features.map((f) => ({
+        label: f.label,
+        difference: f.difference,
+        z: f.z,
+        nSelection: f.n_selection,
+        reliable: f.reliable,
+        isNullish: f.is_nullish,
+      })), snapshot.mode,
+        `bar length = difference in percentage points · order = |z| (reliability) · `
+        + `${result.n_reliable} of ${result.n_features} features pass the validity test`);
+    } catch (error) {
+      if (token !== pending) return;
+      showEmpty(`contrast failed: ${error.message}`);
+      console.error("[view D] contrast failed:", error);
+    }
   }
 
   return { showEmpty, render, demo, applySelection };
