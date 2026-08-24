@@ -218,4 +218,31 @@ stato reale senza dover rileggere tutta la chat.
       propagazione in 33–42 ms, 0 errori in console.
       **Aggiunto a `/api/incidents`:** `types` per incidente, così View C può ridisegnarsi
       sulla selezione dagli stessi atomi esplosi della serie globale.
-- [ ] Fase 12 — completata il: ___
+- [x] Fase 12 — completata il: 2026-08-23 — **AS index invariato: 61.452**
+      Analitica 6.1 in `backend/app/analytics.py` + `POST /api/residuals`, integrata
+      nella mappa con scala divergente e badge "small sample".
+      **`POST`, non `GET`, e senza forma senza parametri:** chiedere il residuo
+      *obbliga* a dichiarare cosa è selezionato. Una lista vuota è rifiutata con 422
+      dalla validazione. Il vincolo di CLAUDE.md §6 è nel contratto API, non solo
+      nell'interfaccia.
+      **Questione aperta dalla Fase 2 risolta con due statistiche invece di una.**
+      Misure sui dati reali: celle paese×settore affidabili solo 19,2% (387/2016), ma
+      paesi con almeno una cella affidabile 67,3%, e paesi affidabili su un residuo
+      *per paese* 72,0%. Quindi: **la mappa usa il residuo per paese** (un numero per
+      paese, come richiede una coropletica), **il pannello dettagli usa i residui
+      paese×settore** (la tabella di contingenza letterale di §6.1, dove il badge serve
+      davvero). Nessuno dei due viene soppresso quando inaffidabile: viene marcato.
+      **Bug di design trovato e corretto — circolarità.** Selezionando solo l'Italia il
+      residuo dava **z = +23,20**: la selezione *era* l'Italia, quindi l'Italia risultava
+      al 100% contro un 3% atteso. Ora il residuo geografico si calcola sulla selezione
+      **meno il filtro paese** (`SelectionStore.resolveIgnoring`): il lasso e il brush
+      danno il contesto, la mappa risponde "dentro quel contesto, quali paesi deviano?".
+      Italia dentro il brush 2022–24 dà ora **z = +5,14**, che coincide col calcolo
+      Python indipendente. Con il solo filtro paese la mappa resta sul volume e lo dice
+      esplicitamente, invece di mostrare un numero privo di senso.
+      **Toggle sempre a due stati:** il primo slot è "Incident volume" senza selezione e
+      "Residual" quando un residuo è calcolabile. Un terzo bottone avrebbe trasformato
+      un interruttore di visualizzazione nel menu che il brief vieta.
+      **Verificato:** 121/168 paesi affidabili sul brush 2022–24, 42 paesi tratteggiati,
+      CN −6,71 / DE +5,85 / IT +5,14 identici al calcolo indipendente, clear azzera tutto.
+- [ ] Fase 13 — completata il: ___

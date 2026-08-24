@@ -95,3 +95,49 @@ class FeatureBlock(BaseModel):
     atom: str
     label: str
     is_nullish: bool
+
+
+class SelectionRequest(BaseModel):
+    """The selection an analytic runs on.
+
+    incident_ids is required and must be non-empty: the analytics endpoints refuse to
+    compute a "global" default, which is the rule in CLAUDE.md sec.6 expressed in the
+    API contract rather than left to the caller's good manners.
+    """
+
+    incident_ids: list[int] = Field(min_length=1,
+                                    description="Ids of the currently selected incidents")
+    country_code: str | None = Field(
+        default=None, description="When set, also return that country's sector breakdown")
+
+
+class CountryResidual(BaseModel):
+    """Standardized deviation of one country within the current selection."""
+
+    code: str
+    country: str
+    observed: int
+    expected: float
+    z: float = Field(description="(observed - expected) / sqrt(expected)")
+    reliable: bool = Field(description="False when expected < 5: shown with a badge, not hidden")
+
+
+class SectorResidual(BaseModel):
+    """Standardized deviation of one sector within one country."""
+
+    sector: str
+    observed: int
+    expected: float
+    z: float
+    reliable: bool
+
+
+class ResidualsResponse(BaseModel):
+    """Payload of POST /api/residuals - analytics 6.1."""
+
+    countries: list[CountryResidual]
+    sectors: list[SectorResidual] = Field(
+        default_factory=list, description="Only when country_code was supplied")
+    n_incidents: int
+    n_observations: int
+    summary: dict

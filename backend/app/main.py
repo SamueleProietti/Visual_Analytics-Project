@@ -17,13 +17,13 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from . import data
+from . import analytics, data
 from .models import (CountrySummary, DatasetStatus, FeatureBlock, HealthResponse,
-                     Incident, TimelinePoint)
+                     Incident, ResidualsResponse, SelectionRequest, TimelinePoint)
 
 # backend/app/main.py -> backend/app -> backend -> repository root
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -98,7 +98,7 @@ def health() -> HealthResponse:
     missing = data.missing_artifacts()
     return HealthResponse(
         status="ok",
-        phase=11,
+        phase=12,
         datasets=datasets,
         data_ready=all(d.present for d in datasets),
         n_incidents=N_INCIDENTS,
@@ -159,6 +159,34 @@ def get_features() -> list[dict]:
     """The 123 indicators and their readable labels, for View D's bar captions."""
     columns = ["column", "block", "atom", "label", "is_nullish"]
     return _records(data.feature_blocks()[columns])
+
+
+@app.post("/api/residuals", response_model=ResidualsResponse, tags=["analytics"])
+def post_residuals(request: SelectionRequest) -> ResidualsResponse:
+    """Analytics 6.1 — standardized deviation over the current selection.
+
+    A POST, not a GET: the selection can run to thousands of ids, and a URL is the wrong
+    place for it. More to the point, there is no parameterless form of this endpoint to
+    call by accident - asking for the residual REQUIRES stating what is selected, so no
+    default global result can exist (CLAUDE.md sec.6).
+    """
+    ids = set(request.incident_ids)
+    if not ids:
+        raise HTTPException(status_code=400, detail="a selection is required")
+
+    try:
+        countries = analytics.country_residuals(ids)
+        sectors = (analytics.sector_residuals(ids, request.country_code)
+                   if request.country_code else [])
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+    observations = int(sum(row["observed"] for row in countries))
+    return ResidualsResponse(
+        countries=countries, sectors=sectors,
+        n_incidents=len(ids), n_observations=observations,
+        summary=analytics.residuals_summary(countries),
+    )
 
 
 # Mounted last: StaticFiles on "/" is a catch-all, so any route declared after it would

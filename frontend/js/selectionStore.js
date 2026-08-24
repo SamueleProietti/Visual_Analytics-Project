@@ -140,6 +140,29 @@ const SelectionStore = (() => {
     };
   }
 
+  /**
+   * Resolve while ignoring one source — the geographic residual needs this.
+   *
+   * Asking "which countries are over-represented in this selection?" is circular when
+   * the selection was DEFINED by picking countries: select Italy and Italy is 100% of
+   * the selection against an expected 3%, giving a meaningless z of +23. Measured, not
+   * theorised - it is what the first run of phase 12 produced.
+   *
+   * So the map computes its residual over the selection MINUS the country filter: the
+   * lasso and the brush set the context, and the map answers "inside that context,
+   * which countries deviate?". The clicked country stays highlighted as the focus, but
+   * it no longer defines the very question being asked about it.
+   */
+  function resolveIgnoring(source) {
+    const saved = { ...state };
+    if (source === "countries") state = { ...state, countries: [] };
+    if (source === "lasso") state = { ...state, lasso: null };
+    if (source === "yearRange") state = { ...state, yearRange: null };
+    const result = resolve();
+    state = saved;
+    return result;
+  }
+
   function activeSources() {
     const sources = [];
     if (state.countries.length) sources.push("map");
@@ -174,7 +197,7 @@ const SelectionStore = (() => {
   }
 
   return {
-    setCorpus, subscribe, getState, isEmpty, resolve,
+    setCorpus, subscribe, getState, isEmpty, resolve, resolveIgnoring,
     setCountries, setLasso, setYearRange, clear,
     // Exposed for the phase-10 tests; the views use the methods above.
     _subscriberCount: () => subscribers.size,

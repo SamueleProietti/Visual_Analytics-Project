@@ -33,6 +33,17 @@ const ViewA = (() => {
   const OUTLINE = "#b0b0b0";
 
   const LAYERS = {
+    residual: {
+      label: "Residual",
+      legendTitle: "standardized deviation z",
+      // Divergent, and legitimately so: zero means "exactly as expected" and the sign
+      // says over- or under-represented. ColorBrewer RdBu, the same opponent pair
+      // View D uses, so red means "more than expected" in both views.
+      colours: ["#2166ac", "#67a9cf", "#d1e5f0", "#f7f7f7", "#fddbc7", "#ef8a62", "#b2182b"],
+      breaks: [-3, -2, -1, 1, 2, 3],
+      value: (d) => (d.residual == null ? null : d.residual.z),
+      legendLabels: ["≤ -3", "-3..-2", "-2..-1", "-1..1", "1..2", "2..3", "≥ 3"],
+    },
     volume: {
       label: "Incident volume",
       legendTitle: "incidents recorded",
@@ -61,6 +72,7 @@ const ViewA = (() => {
     byCode: new Map(),
     byNumeric: new Map(),
     countries: null,
+    residuals: null,
     svg: null,
     path: null,
   };
@@ -79,7 +91,7 @@ const ViewA = (() => {
 
   function colourFor(datum) {
     if (!datum) return NO_DATA;
-    const layer = LAYERS[state.layer];
+    const layer = LAYERS[activeLayer()];
     const value = layer.value(datum);
     if (value == null) return NO_DATA;
     let index = 0;
@@ -87,10 +99,24 @@ const ViewA = (() => {
     return layer.colours[index];
   }
 
+  function activeLayer() {
+    // The residual layer only exists while a selection does. Without one there is
+    // nothing to deviate from, so the toggle falls back to plain volume - which is the
+    // "no default global state" rule made visible in the control itself.
+    if (state.layer === "residual"
+        && !(state.residuals && state.residuals.geographic !== false)) return "volume";
+    return state.layer;
+  }
+
   function draw() {
     const svg = state.svg;
     svg.selectAll("path.country")
       .attr("fill", (f) => colourFor(state.byNumeric.get(String(+f.id))))
+      .classed("is-unreliable", (f) => {
+        if (activeLayer() !== "residual") return false;
+        const d = state.byNumeric.get(String(+f.id));
+        return !!(d && d.residual && !d.residual.reliable);
+      })
       .attr("stroke", (f) => (state.selected.has(codeOf(f))
         ? (state.indirect ? "#6a51a3" : "#1a1a1a") : OUTLINE))
       .attr("stroke-width", (f) => (state.selected.has(codeOf(f))
@@ -104,7 +130,7 @@ const ViewA = (() => {
   }
 
   function renderLegend() {
-    const layer = LAYERS[state.layer];
+    const layer = LAYERS[activeLayer()];
     const legend = d3.select("#view-a-legend");
     legend.selectAll("*").remove();
 
@@ -120,21 +146,58 @@ const ViewA = (() => {
     const none = legend.append("span").attr("class", "legend-item");
     none.append("span").attr("class", "legend-swatch").style("background", NO_DATA);
     none.append("span").text("no data");
+
+    if (activeLayer() === "residual" && state.residuals) {
+      const flagged = legend.append("span").attr("class", "legend-item");
+      flagged.append("span").attr("class", "legend-swatch is-unreliable-swatch");
+      flagged.append("span").text(`small sample (expected < ${state.residuals
+        ? state.residuals.summary.min_expected : 5})`);
+      legend.append("span").attr("class", "legend-note")
+        .text(`${state.residuals.summary.reliable} of `
+          + `${state.residuals.summary.countries} countries have a reliable residual`);
+    }
   }
 
-  function showDetails(datum) {
+  function showDetails(datum, residuals) {
     const panel = d3.select("#view-a-details");
     if (!datum) {
       panel.html('<span class="hint">click a country for details</span>');
       return;
     }
+
+    // The country-level residual, then the sector breakdown that says where the
+    // deviation comes from. Cells below the expected-frequency threshold are marked,
+    // never dropped: sec.6.1 asks for a badge, not for suppression.
+    // Three distinct states, and saying which one applies matters: "not computed yet"
+    // and "cannot be computed without begging the question" are different answers.
+    let residualLine = SelectionStore.isEmpty()
+      ? '<span class="pending">residual: select something first</span>'
+      : '<span class="pending">geographic residual needs a time or lasso context '
+        + '(selecting a country alone would compare it with itself)</span>';
+    if (datum.residual) {
+      const r = datum.residual;
+      const badge = r.reliable ? "" : ' <em class="badge">small sample</em>';
+      residualLine = `<span>residual <strong>z = ${r.z > 0 ? "+" : ""}${r.z.toFixed(2)}</strong>`
+        + ` (${r.observed} seen vs ${r.expected.toFixed(1)} expected)${badge}</span>`;
+    }
+
+    let sectorLine = "";
+    if (residuals && residuals.sectors && residuals.sectors.length) {
+      const top = residuals.sectors.slice(0, 2).map((s) => {
+        const badge = s.reliable ? "" : ' <em class="badge">small n</em>';
+        return `${s.sector.split("(")[0].trim().slice(0, 26)} `
+          + `${s.z > 0 ? "+" : ""}${s.z.toFixed(1)}${badge}`;
+      }).join(" · ");
+      sectorLine = `<span class="sectors">by sector: ${top}</span>`;
+    }
+
     // Kept short deliberately - CLAUDE.md sec.5 asks for a summary, not a profile dump.
     panel.html(`
       <strong>${datum.country}</strong>
-      <span>${datum.incidents} incidents · ${datum.observations} target records</span>
-      <span>top sector: ${datum.top_sector.split("(")[0].trim()} (${datum.top_sector_count})</span>
-      <span>no named initiator: ${(datum.not_attributed_rate * 100).toFixed(0)}%</span>
-      <span class="pending">residual: needs a selection (phase 12)</span>
+      <span>${datum.incidents} incidents · top sector: `
+      + `${datum.top_sector.split("(")[0].trim()} (${datum.top_sector_count})</span>
+      ${residualLine}
+      ${sectorLine}
     `);
   }
 
@@ -154,8 +217,42 @@ const ViewA = (() => {
     }
   }
 
-  /** React to the shared selection, whoever produced it. */
-  function applySelection(snapshot, origin) {
+  /** React to the shared selection, whoever produced it.
+   *
+   * Async because analytics 6.1 runs on the backend. The residual is requested ONLY
+   * when a selection exists; on an empty snapshot the previous result is discarded and
+   * the map falls back to plain volume, so no stale analytic can survive a clear.
+   */
+  async function applySelection(snapshot, origin) {
+    if (snapshot.empty) {
+      clearResiduals();
+    } else {
+      try {
+        const result = await loadResiduals(snapshot);
+        if (result) {
+          attachResiduals(result);
+          if (state.layer !== "attribution") state.layer = "residual";
+        } else {
+          // Only countries are selected: there is no non-circular context to compute a
+          // geographic residual against, so the map stays on volume and the sector
+          // breakdown in the details panel carries the analysis instead.
+          clearResiduals();
+          const only = [...SelectionStore.getState().countries];
+          if (only.length === 1) {
+            state.residuals = await loadSectors(snapshot, only[0]);
+            state.residuals.geographic = false;   // sectors only; do not paint the map
+          }
+        }
+      } catch (error) {
+        clearResiduals();
+        console.error("[view A] residuals failed:", error);
+      }
+    }
+    buildToggle();
+    renderSelection(snapshot);
+  }
+
+  function renderSelection(snapshot) {
     const codes = new Set(SelectionStore.getState().countries);
 
     // A lasso or a brush selects incidents, not countries. Highlighting the countries
@@ -173,7 +270,7 @@ const ViewA = (() => {
 
     const list = [...codes];
     if (list.length === 1) {
-      showDetails(state.byCode.get(list[0]));
+      showDetails(state.byCode.get(list[0]), state.residuals);
     } else if (list.length > 1) {
       d3.select("#view-a-details").html(
         `<strong>${list.length} countries selected</strong>`
@@ -260,21 +357,88 @@ const ViewA = (() => {
     return painted;
   }
 
-  /** Two-state control, not a dropdown: CLAUDE.md sec.2 keeps this a display switch. */
+  /** Two-state control, not a dropdown: CLAUDE.md sec.2 keeps this a display switch.
+   *
+   * Exactly two buttons, always. The first one is the analytic slot: it reads "Incident
+   * volume" with no selection and "Residual" once one exists, because a residual has
+   * nothing to deviate from until the analyst has chosen something. Adding a third
+   * button would turn a display switch into the menu the brief forbids.
+   */
   function buildToggle() {
     const host = d3.select("#view-a-toggle");
     host.selectAll("*").remove();
+    const slots = ["primary", "attribution"];
     host.selectAll("button")
-      .data(Object.entries(LAYERS))
+      .data(slots)
       .join("button")
-      .attr("class", ([key]) => "toggle-button" + (key === state.layer ? " is-active" : ""))
-      .text(([, layer]) => layer.label)
-      .on("click", (event, [key]) => {
-        state.layer = key;
-        host.selectAll("button").attr("class", ([k]) =>
-          "toggle-button" + (k === state.layer ? " is-active" : ""));
+      .attr("class", (slot) => "toggle-button"
+        + ((slot === "attribution") === (state.layer === "attribution") ? " is-active" : ""))
+      .text((slot) => (slot === "attribution"
+        ? LAYERS.attribution.label
+        : (state.residuals && state.residuals.geographic !== false
+            ? LAYERS.residual.label : LAYERS.volume.label)))
+      .on("click", (event, slot) => {
+        state.layer = slot === "attribution" ? "attribution"
+          : (state.residuals && state.residuals.geographic !== false
+              ? "residual" : "volume");
+        buildToggle();
         draw();
       });
+  }
+
+  /** Fetch analytics 6.1 for the current selection and repaint the map on it.
+   *
+   * The geographic residual is computed over the selection WITHOUT its country filter.
+   * Asking which countries are unusual in a selection defined by picking countries is
+   * circular: selecting Italy alone made Italy 100% of the selection against 3%
+   * expected, a z of +23 that says nothing. The context comes from the lasso and the
+   * brush; the map reports deviation inside that context.
+   *
+   * The sector breakdown, by contrast, uses the FULL selection - "within the Italian
+   * incidents I picked, which sectors deviate?" is a real question, not a circular one.
+   */
+  async function loadResiduals(snapshot) {
+    const country = [...SelectionStore.getState().countries];
+    const geographic = country.length
+      ? SelectionStore.resolveIgnoring("countries") : snapshot;
+    if (geographic.empty || !geographic.ids.size) return null;
+
+    const body = { incident_ids: [...geographic.ids] };
+    if (country.length === 1 && snapshot.ids.size) body.country_code = country[0];
+
+    const response = await fetch("/api/residuals", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) throw new Error(`${response.status} on /api/residuals`);
+    return response.json();
+  }
+
+  /** Sector breakdown for the clicked country, over the full selection. */
+  async function loadSectors(snapshot, code) {
+    const response = await fetch("/api/residuals", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ incident_ids: [...snapshot.ids], country_code: code }),
+    });
+    if (!response.ok) throw new Error(`${response.status} on /api/residuals`);
+    return response.json();
+  }
+
+  function attachResiduals(result) {
+    for (const datum of state.byCode.values()) datum.residual = null;
+    for (const row of result.countries) {
+      const datum = state.byCode.get(row.code);
+      if (datum) datum.residual = row;
+    }
+    state.residuals = result;
+  }
+
+  function clearResiduals() {
+    for (const datum of state.byCode.values()) datum.residual = null;
+    state.residuals = null;
+    if (state.layer === "residual") state.layer = "volume";
   }
 
   return { init, applySelection };
