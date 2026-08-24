@@ -54,6 +54,9 @@ class Incident(BaseModel):
     weighted_intensity: float | None = Field(description="View B colour")
     affected_entities_value: float | None = Field(description="View B size, before log1p")
     not_attributed: int = Field(description="1 when no initiator state is named")
+    countries: list[str] = Field(
+        description="ISO alpha-2 of every targeted country; empty when the incident is "
+                    "located only on a region or an organisation")
     x: float
     y: float
 

@@ -50,6 +50,18 @@ def incidents():
     tsne = _read("tsne_global.csv.gz")
     frame = meta.merge(tsne, on="incident_id", how="left")
 
+    # Which countries each incident targeted, so a map click can resolve to a set of
+    # incidents on the client without a round trip. 249 incidents are located only on
+    # regions or organisations and get an empty list: they are unreachable by map
+    # selection by construction, which phase 11 has to account for.
+    long = incident_receiver()
+    per_incident = (long.dropna(subset=["country_code"])
+                    .groupby("incident_id")["country_code"]
+                    .apply(lambda codes: sorted(set(codes))))
+    frame["countries"] = frame["incident_id"].map(per_incident)
+    frame["countries"] = frame["countries"].apply(
+        lambda value: value if isinstance(value, list) else [])
+
     # year is Int16 upstream but round-trips through CSV as float; restore the integer
     # type so it serialises as 2024 rather than 2024.0. The 92 undated incidents stay
     # null and the JSON layer emits them as None.

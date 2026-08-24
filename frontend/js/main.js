@@ -162,11 +162,12 @@ async function bootstrap() {
   // analyst selects something (CLAUDE.md sec.6).
   ViewD.showEmpty();
 
-  // --- phase 10 seam -------------------------------------------------------------
-  // The shared selection store goes here. Until it exists, no view holds selection
-  // state of its own: CLAUDE.md sec.6 requires that none of the three analytics run
-  // before a selection exists, and the cleanest way to guarantee that is to keep a
-  // single source of truth from the start.
+  // The store is handed the corpus so it can resolve a selection into incidents, but
+  // nothing is wired to it yet: phase 11 makes the views publish and subscribe. It
+  // starts empty, and isEmpty() is what every analytic will check before running.
+  SelectionStore.setCorpus(store.incidents || []);
+  console.info(`[selection] store ready · empty=${SelectionStore.isEmpty()} · `
+    + `subscribers=${SelectionStore._subscriberCount()}`);
 }
 
 document.addEventListener("DOMContentLoaded", bootstrap);

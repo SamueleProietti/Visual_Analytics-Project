@@ -172,4 +172,25 @@ stato reale senza dover rileggere tutta la chat.
       `ViewD.demo()` disegna il layout con numeri inventati **solo da console**, con
       scritta "DEMO DATA" sovraimpressa: un grafico plausibile di dati finti sarebbe
       peggio di nessun grafico.
-- [ ] Fase 10 — completata il: ___
+- [x] Fase 10 — completata il: 2026-08-23 — **AS index invariato: 61.452**
+      `frontend/js/selectionStore.js`: stato centralizzato + pub/sub. **Nessuna vista
+      pubblica o si sottoscrive ancora** (0 sottoscrittori all'avvio) — è solo
+      infrastruttura, il collegamento è la Fase 11.
+      **Perché è una fase a sé:** con una sola autorità sulla selezione, la domanda
+      "esiste una selezione?" ha una sola risposta, e `isEmpty()` diventa la guardia
+      che ogni analitica controlla. Con quattro viste che tengono ciascuna il proprio
+      stato, il vincolo graded di CLAUDE.md §6 dipenderebbe da quattro discipline
+      separate invece che dalla struttura.
+      **Tre sorgenti combinate per INTERSEZIONE**, non unione: paesi (View A) ∩ lasso
+      (View B) ∩ finestra temporale (View C). Il proposal descrive il brush come
+      *restrizione* di ogni computazione alla sua finestra: chi lazza un cluster e poi
+      spazzola 2022–2024 intende "questi incidenti, in quegli anni", non "o l'uno o
+      l'altro".
+      **Verificato:** IT→81 (coincide con View A), IT+DE→237 con 15 sovrapposti (unione,
+      non somma), brush 2000–2024→3.322 (i 92 senza data escono per costruzione),
+      US→871, selezione+complemento = 3.414 sempre. Passaggio automatico ad A-vs-B con
+      2 paesi: `"IT" vs "DE"`. Un sottoscrittore che va in errore non blocca gli altri.
+      **Aggiunto a `/api/incidents`:** `countries` per incidente (+143 KB non compressi,
+      ~30 gzippati) — senza, un click sulla mappa non può risolversi in un insieme di
+      incidenti lato client.
+- [ ] Fase 11 — completata il: ___
