@@ -62,6 +62,19 @@ def incidents():
     frame["countries"] = frame["countries"].apply(
         lambda value: value if isinstance(value, list) else [])
 
+    # Incident types, so View C can redraw itself on a selection without a round trip.
+    # Read from the exploded type_* indicators, which is the same source the global
+    # timeline aggregates - the focus series and the context series cannot disagree.
+    matrix = feature_matrix()
+    blocks = feature_blocks()
+    type_columns = blocks[blocks["block"] == "type"]
+    names = list(type_columns["atom"])
+    values = matrix[list(type_columns["column"])].to_numpy()
+    by_id = dict(zip(matrix["incident_id"],
+                     ([names[i] for i, on in enumerate(row) if on] for row in values)))
+    frame["types"] = frame["incident_id"].map(by_id).apply(
+        lambda value: value if isinstance(value, list) else [])
+
     # year is Int16 upstream but round-trips through CSV as float; restore the integer
     # type so it serialises as 2024 rather than 2024.0. The 92 undated incidents stay
     # null and the JSON layer emits them as None.

@@ -155,5 +155,21 @@ const ViewD = (() => {
     console.warn("[view D] demo layout drawn from fabricated numbers - not a result.");
   }
 
-  return { showEmpty, render, demo };
+  /**
+   * Phase 11: the panel learns WHAT would be compared, but still computes nothing.
+   *
+   * The header naming the comparison is not decoration - CLAUDE.md sec.5 forbids
+   * leaving the target implicit, and stating it before the bars exist makes the
+   * distinction visible: the question is defined, the answer is not yet computed.
+   */
+  function applySelection(snapshot) {
+    if (snapshot.empty) return showEmpty();
+    setHeader(snapshot.mode);
+    d3.select("#view-d-canvas").html(
+      `<span class="placeholder">${snapshot.selected.length} incidents selected`
+      + ` · contrastive z-scores arrive in phase 14</span>`);
+    d3.select("#view-d-legend").html("");
+  }
+
+  return { showEmpty, render, demo, applySelection };
 })();

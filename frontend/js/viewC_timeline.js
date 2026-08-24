@@ -32,6 +32,19 @@ const ViewC = (() => {
 
   const MARGIN = { top: 8, right: 8, bottom: 22, left: 34 };
 
+  let state = { plot: null, x: null, y: null, area: null, years: [], order: null };
+
+  /** Pivot a long table of {year, type, count} into stacked series. */
+  function toSeries(rows, years) {
+    const byYear = new Map(years.map((y) => [y, Object.fromEntries(
+      ORDER.map((t) => [t, 0]))]));
+    for (const row of rows) {
+      const entry = byYear.get(row.year);
+      if (entry && row.type in entry) entry[row.type] += row.count;
+    }
+    return d3.stack().keys(ORDER)(years.map((y) => ({ year: y, ...byYear.get(y) })));
+  }
+
   function init(timeline) {
     const host = d3.select("#view-c-canvas");
     host.html("");
@@ -45,15 +58,7 @@ const ViewC = (() => {
     // gaps: a type absent in a year is a real zero, and leaving it undefined would make
     // d3.stack open a hole in the band.
     const years = [...new Set(timeline.map((d) => d.year))].sort((a, b) => a - b);
-    const byYear = new Map(years.map((y) => [y, Object.fromEntries(
-      ORDER.map((t) => [t, 0]))]));
-    for (const row of timeline) {
-      const entry = byYear.get(row.year);
-      if (entry && row.type in entry) entry[row.type] = row.count;
-    }
-    const rows = years.map((y) => ({ year: y, ...byYear.get(y) }));
-
-    const series = d3.stack().keys(ORDER)(rows);
+    const series = toSeries(timeline, years);
 
     const x = d3.scaleLinear().domain([years[0], years[years.length - 1]])
       .range([0, innerW]);
@@ -94,10 +99,76 @@ const ViewC = (() => {
       .attr("class", "axis")
       .call(d3.axisLeft(y).ticks(5));
 
+    state.plot = plot;
+    state.x = x;
+    state.y = y;
+    state.area = area;
+    state.years = years;
+    attachBrush(plot, x, innerW, innerH, years);
+
     renderLegend(series);
     console.info(`[view C] ${years[0]}-${years[years.length - 1]}, `
       + `${ORDER.length} types, ${timeline.length} year-type cells`);
     return years;
+  }
+
+  /* Timeline brush — the third permitted analytic trigger. Snapped to whole years,
+   * because the underlying data is annual: a window of "2019.4 to 2022.7" would imply
+   * a resolution the corpus does not have. */
+  function attachBrush(plot, x, innerW, innerH, years) {
+    const brush = d3.brushX()
+      .extent([[0, 0], [innerW, innerH]])
+      .on("end", (event) => {
+        if (!event.selection) {
+          SelectionStore.setYearRange(null);
+          return;
+        }
+        const [x0, x1] = event.selection.map(x.invert);
+        const from = Math.max(years[0], Math.round(x0));
+        const to = Math.min(years[years.length - 1], Math.round(x1));
+        SelectionStore.setYearRange(from === to ? [from, from] : [from, to]);
+        console.info(`[view C] brushed ${from}-${to}`);
+      });
+    plot.append("g").attr("class", "brush").call(brush);
+  }
+
+  /**
+   * React to the shared selection by redrawing the bands over only the selected
+   * incidents, keeping the full series behind as pale context.
+   *
+   * Context plus focus rather than focus alone: a band that shrinks is only readable
+   * against the shape it had before, and without the backdrop an analyst cannot tell a
+   * small selection from a quiet year.
+   */
+  function applySelection(snapshot) {
+    if (!state.plot) return;
+    state.plot.selectAll("path.band-selected").remove();
+
+    if (snapshot.empty) {
+      state.plot.selectAll("path.band").classed("is-context", false);
+      return;
+    }
+
+    // Recount year x type over the selection, from the same exploded atoms the global
+    // series uses, so focus and context can never disagree about what a type is.
+    const rows = [];
+    for (const incident of snapshot.selected) {
+      if (incident.year == null) continue;
+      for (const type of incident.types || []) {
+        rows.push({ year: incident.year, type, count: 1 });
+      }
+    }
+
+    state.plot.selectAll("path.band").classed("is-context", true);
+    if (!rows.length) return;
+
+    // Same y scale as the context, deliberately: rescaling would make a tiny selection
+    // fill the panel and read as though it were the whole corpus.
+    state.plot.selectAll("path.band-selected")
+      .data(toSeries(rows, state.years)).join("path")
+      .attr("class", "band-selected")
+      .attr("fill", (d) => PALETTE[d.key])
+      .attr("d", state.area);
   }
 
   function renderLegend(series) {
@@ -119,5 +190,5 @@ const ViewC = (() => {
       .text("bands count type occurrences, not incidents: one incident can carry several types");
   }
 
-  return { init };
+  return { init, applySelection };
 })();

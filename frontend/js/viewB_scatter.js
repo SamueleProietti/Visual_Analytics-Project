@@ -20,7 +20,24 @@ const ViewB = (() => {
   const R_MIN = 2.0;
   const R_MAX = 8.0;
 
-  let state = { svg: null, points: null, colour: null, radius: null, maxLog: 1 };
+  let state = { svg: null, points: null, colour: null, radius: null, maxLog: 1,
+                x: null, y: null, lassoPath: null, drawing: false, vertices: [] };
+
+  /* Ray casting: count how many times a ray from the point crosses the polygon edges.
+   * Odd means inside. Written out rather than pulled from a library because d3 has no
+   * lasso and the whole test is a dozen lines - a dependency would cost more to justify
+   * at the exam than the code costs to read. */
+  function insidePolygon(px, py, polygon) {
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const [xi, yi] = polygon[i];
+      const [xj, yj] = polygon[j];
+      const crosses = (yi > py) !== (yj > py)
+        && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi;
+      if (crosses) inside = !inside;
+    }
+    return inside;
+  }
 
   /** Radius such that the drawn AREA is proportional to log1p(affected entities).
    *
@@ -120,10 +137,78 @@ const ViewB = (() => {
       .attr("font-size", 9).attr("fill", "#9a9a9a")
       .text("axes have no units · distances between clusters are not meaningful");
 
+    state.x = x;
+    state.y = y;
+    attachLasso(svg, ordered, width, height);
+
     renderLegend(incidents);
     console.info(`[view B] ${incidents.length} points drawn`);
     return incidents.length;
   }
 
-  return { init };
+  /* Free lasso — one of the three permitted analytic triggers (CLAUDE.md sec.2: no
+   * menu, dropdown or radio button may start a computation). Drag to trace a shape,
+   * release to select what falls inside; a click without a drag clears. */
+  function attachLasso(svg, data, width, height) {
+    state.lassoPath = svg.append("path").attr("class", "lasso").attr("d", "");
+
+    const point = (event) => {
+      const rect = svg.node().getBoundingClientRect();
+      return [event.clientX - rect.left, event.clientY - rect.top];
+    };
+
+    svg.on("mousedown", (event) => {
+      event.preventDefault();
+      state.drawing = true;
+      state.vertices = [point(event)];
+      state.lassoPath.attr("d", "").classed("is-active", true);
+    });
+
+    svg.on("mousemove", (event) => {
+      if (!state.drawing) return;
+      state.vertices.push(point(event));
+      state.lassoPath.attr("d", "M" + state.vertices.map((p) => p.join(",")).join("L") + "Z");
+    });
+
+    // Listening on window, not the svg: releasing the button outside the plot must
+    // still finish the gesture, otherwise the lasso stays stuck in drawing mode.
+    d3.select(window).on("mouseup.viewB", () => {
+      if (!state.drawing) return;
+      state.drawing = false;
+      state.lassoPath.attr("d", "").classed("is-active", false);
+
+      // Fewer than three vertices is a click, not a lasso: treat it as "clear".
+      if (state.vertices.length < 3) {
+        SelectionStore.setLasso(null);
+        return;
+      }
+      const hits = data.filter((d) =>
+        insidePolygon(state.x(d.x), state.y(d.y), state.vertices));
+      SelectionStore.setLasso(new Set(hits.map((d) => d.incident_id)));
+      console.info(`[view B] lasso selected ${hits.length} incidents`);
+    });
+  }
+
+  /**
+   * React to the shared selection, whatever produced it.
+   *
+   * Selected points keep their colour; the rest fade rather than disappear, so the
+   * selection is read against the shape of the whole corpus instead of floating in an
+   * empty plane.
+   */
+  function applySelection(snapshot) {
+    if (!state.points) return;
+    if (snapshot.empty) {
+      state.points.attr("fill-opacity", 0.78).attr("stroke", "#ffffff")
+        .attr("stroke-width", 0.35).classed("is-dimmed", false);
+      return;
+    }
+    state.points
+      .classed("is-dimmed", (d) => !snapshot.ids.has(d.incident_id))
+      .attr("fill-opacity", (d) => (snapshot.ids.has(d.incident_id) ? 0.9 : 0.12))
+      .attr("stroke", (d) => (snapshot.ids.has(d.incident_id) ? "#1a1a1a" : "#ffffff"))
+      .attr("stroke-width", (d) => (snapshot.ids.has(d.incident_id) ? 0.7 : 0.2));
+  }
+
+  return { init, applySelection };
 })();

@@ -193,4 +193,29 @@ stato reale senza dover rileggere tutta la chat.
       **Aggiunto a `/api/incidents`:** `countries` per incidente (+143 KB non compressi,
       ~30 gzippati) — senza, un click sulla mappa non può risolversi in un insieme di
       incidenti lato client.
-- [ ] Fase 11 — completata il: ___
+- [x] Fase 11 — completata il: 2026-08-23 — **AS index invariato: 61.452**
+      Coordinamento bidirezionale completo: tutte e 4 le viste sono sorgente e
+      destinazione, come da punto 4 del proposal.
+      **I tre trigger sono tutti implementati** (CLAUDE.md §2: nessun menu può avviare
+      un'analitica): click/ctrl-click sulla mappa, **lasso libero** sulla proiezione,
+      **brush** sulla timeline.
+      Il lasso è scritto a mano (ray casting per point-in-polygon, ~12 righe): D3 non
+      lo fornisce e una dipendenza costerebbe più da giustificare all'esame di quanto
+      costi leggere il codice. Il `mouseup` è su `window`, non sull'svg, altrimenti
+      rilasciando fuori dal grafico il lasso resterebbe bloccato.
+      **View A non possiede più la selezione:** pubblica nello store e ridisegna da ciò
+      che torna, esattamente come le viste che non hanno originato il cambiamento.
+      Distingue selezione **diretta** (bordo nero, click sul paese) da **indiretta**
+      (bordo viola, paesi toccati da un lasso o da un brush).
+      **View C usa contesto + focus:** le bande complete restano dietro in chiaro e la
+      selezione si sovrappone a colori pieni, **sulla stessa scala y**. Riscalare
+      farebbe sembrare una selezione minuscola grande come l'intero corpus.
+      **View D aggiorna solo l'header**, nessun calcolo: la domanda è definita, la
+      risposta arriva in Fase 14.
+      **Verificato:** click IT→81 propagato a tutte e 4; lasso→696 incidenti che
+      illuminano 116 paesi; brush 2022–24→1.777; intersezione IT∩2022–24→52 con 0 fuori
+      range; clear azzera tutto. **Esattamente 1 notifica per azione — nessun ciclo** —
+      propagazione in 33–42 ms, 0 errori in console.
+      **Aggiunto a `/api/incidents`:** `types` per incidente, così View C può ridisegnarsi
+      sulla selezione dagli stessi atomi esplosi della serie globale.
+- [ ] Fase 12 — completata il: ___

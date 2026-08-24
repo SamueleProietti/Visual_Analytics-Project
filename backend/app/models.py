@@ -57,6 +57,8 @@ class Incident(BaseModel):
     countries: list[str] = Field(
         description="ISO alpha-2 of every targeted country; empty when the incident is "
                     "located only on a region or an organisation")
+    types: list[str] = Field(
+        description="Exploded incident_type atoms; an incident can carry several")
     x: float
     y: float
 

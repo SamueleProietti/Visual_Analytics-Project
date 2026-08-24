@@ -91,8 +91,10 @@ const ViewA = (() => {
     const svg = state.svg;
     svg.selectAll("path.country")
       .attr("fill", (f) => colourFor(state.byNumeric.get(String(+f.id))))
-      .attr("stroke", (f) => (state.selected.has(codeOf(f)) ? "#1a1a1a" : OUTLINE))
-      .attr("stroke-width", (f) => (state.selected.has(codeOf(f)) ? 1.6 : 0.3));
+      .attr("stroke", (f) => (state.selected.has(codeOf(f))
+        ? (state.indirect ? "#6a51a3" : "#1a1a1a") : OUTLINE))
+      .attr("stroke-width", (f) => (state.selected.has(codeOf(f))
+        ? (state.indirect ? 1.0 : 1.6) : 0.3));
     renderLegend();
   }
 
@@ -139,22 +141,51 @@ const ViewA = (() => {
   function onCountryClick(event, feature) {
     const code = codeOf(feature);
     if (!code) return;                       // unmapped geometry: nothing to select
-    // ctrl/cmd-click accumulates, plain click replaces - the interaction the proposal
-    // specifies for driving a multi-country comparison.
+
+    // Phase 11: the map no longer owns the selection. It publishes to the store and
+    // then redraws from what comes back, exactly like the views that did not originate
+    // the change. One path in, one path out - no local copy to drift out of sync.
+    const current = SelectionStore.getState().countries;
     if (event.ctrlKey || event.metaKey) {
-      state.selected.has(code) ? state.selected.delete(code) : state.selected.add(code);
+      SelectionStore.setCountries([code], { additive: true });
     } else {
-      state.selected = state.selected.has(code) && state.selected.size === 1
-        ? new Set() : new Set([code]);
+      const onlyThis = current.length === 1 && current[0] === code;
+      SelectionStore.setCountries(onlyThis ? [] : [code]);
     }
+  }
+
+  /** React to the shared selection, whoever produced it. */
+  function applySelection(snapshot, origin) {
+    const codes = new Set(SelectionStore.getState().countries);
+
+    // A lasso or a brush selects incidents, not countries. Highlighting the countries
+    // those incidents hit is what makes the map a target as well as a source - the
+    // proposal's "each view both source and target".
+    const touched = new Set();
+    if (!snapshot.empty && !codes.size) {
+      for (const incident of snapshot.selected) {
+        for (const c of incident.countries || []) touched.add(c);
+      }
+    }
+    state.selected = codes.size ? codes : touched;
+    state.indirect = codes.size === 0 && touched.size > 0;
     draw();
-    const codes = [...state.selected];
-    showDetails(codes.length === 1 ? state.byCode.get(codes[0]) : null);
-    if (codes.length > 1) {
+
+    const list = [...codes];
+    if (list.length === 1) {
+      showDetails(state.byCode.get(list[0]));
+    } else if (list.length > 1) {
       d3.select("#view-a-details").html(
-        `<strong>${codes.length} countries selected</strong>` +
-        `<span>${codes.join(", ")}</span>` +
-        `<span class="pending">contrast A-vs-B: phase 14</span>`);
+        `<strong>${list.length} countries selected</strong>`
+        + `<span>${list.join(", ")}</span>`
+        + `<span class="pending">contrast A-vs-B: phase 14</span>`);
+    } else if (!snapshot.empty) {
+      d3.select("#view-a-details").html(
+        `<strong>${snapshot.selected.length} incidents selected</strong>`
+        + `<span>from ${snapshot.sources.join(" + ")} · touching ${touched.size} countries</span>`
+        + `<span class="pending">residual: phase 12</span>`);
+    } else {
+      showDetails(null);
     }
   }
 
@@ -246,5 +277,5 @@ const ViewA = (() => {
       });
   }
 
-  return { init };
+  return { init, applySelection };
 })();

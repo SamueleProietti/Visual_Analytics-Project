@@ -98,7 +98,7 @@ def health() -> HealthResponse:
     missing = data.missing_artifacts()
     return HealthResponse(
         status="ok",
-        phase=10,
+        phase=11,
         datasets=datasets,
         data_ready=all(d.present for d in datasets),
         n_incidents=N_INCIDENTS,
@@ -129,7 +129,7 @@ def get_incidents() -> list[dict]:
     client, so a lasso does not require a round trip.
     """
     columns = ["incident_id", "name", "year", "weighted_intensity",
-               "affected_entities_value", "not_attributed", "countries", "x", "y"]
+               "affected_entities_value", "not_attributed", "countries", "types", "x", "y"]
     return _records(data.incidents()[columns])
 
 

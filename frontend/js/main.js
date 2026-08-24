@@ -166,6 +166,21 @@ async function bootstrap() {
   // nothing is wired to it yet: phase 11 makes the views publish and subscribe. It
   // starts empty, and isEmpty() is what every analytic will check before running.
   SelectionStore.setCorpus(store.incidents || []);
+
+  // Phase 11: every view subscribes. Each is now both source and target - the map
+  // publishes clicks, the projection publishes lassos, the timeline publishes brushes,
+  // and all four redraw from the same snapshot regardless of which one caused it.
+  //
+  // No view listens to another view directly. That is what keeps the wiring at four
+  // subscriptions instead of the twelve a bidirectional mesh would need, and it is why
+  // a click cannot echo back and forth into an infinite loop.
+  SelectionStore.subscribe((snapshot, origin) => {
+    ViewA.applySelection(snapshot, origin);
+    ViewB.applySelection(snapshot, origin);
+    ViewC.applySelection(snapshot, origin);
+    ViewD.applySelection(snapshot, origin);
+  });
+
   console.info(`[selection] store ready · empty=${SelectionStore.isEmpty()} · `
     + `subscribers=${SelectionStore._subscriberCount()}`);
 }
