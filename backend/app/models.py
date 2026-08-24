@@ -141,3 +141,30 @@ class ResidualsResponse(BaseModel):
     n_incidents: int
     n_observations: int
     summary: dict
+
+
+class ProjectedPoint(BaseModel):
+    """One incident in the locally refitted layout."""
+
+    incident_id: int
+    x: float
+    y: float
+
+
+class ReprojectResponse(BaseModel):
+    """Payload of POST /api/reproject - analytics 6.2.
+
+    `ok` false is a real answer, not an error: below the minimum subset size the
+    refusal IS the result, because an embedding of a dozen points looks exactly as
+    confident as one of a thousand and the analyst cannot tell them apart by eye.
+    """
+
+    ok: bool
+    reason: str = ""
+    n: int
+    minimum: int
+    perplexity: float | None = None
+    trustworthiness: float | None = Field(
+        default=None,
+        description="How much of each point's real neighbourhood survived the projection")
+    points: list[ProjectedPoint] = Field(default_factory=list)

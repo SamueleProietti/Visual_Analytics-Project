@@ -23,7 +23,8 @@ from fastapi.staticfiles import StaticFiles
 
 from . import analytics, data
 from .models import (CountrySummary, DatasetStatus, FeatureBlock, HealthResponse,
-                     Incident, ResidualsResponse, SelectionRequest, TimelinePoint)
+                     Incident, ReprojectResponse, ResidualsResponse,
+                     SelectionRequest, TimelinePoint)
 
 # backend/app/main.py -> backend/app -> backend -> repository root
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -98,7 +99,7 @@ def health() -> HealthResponse:
     missing = data.missing_artifacts()
     return HealthResponse(
         status="ok",
-        phase=12,
+        phase=13,
         datasets=datasets,
         data_ready=all(d.present for d in datasets),
         n_incidents=N_INCIDENTS,
@@ -187,6 +188,24 @@ def post_residuals(request: SelectionRequest) -> ResidualsResponse:
         n_incidents=len(ids), n_observations=observations,
         summary=analytics.residuals_summary(countries),
     )
+
+
+@app.post("/api/reproject", response_model=ReprojectResponse, tags=["analytics"])
+def post_reproject(request: SelectionRequest) -> ReprojectResponse:
+    """Analytics 6.2 — refit t-SNE on the selected subset alone.
+
+    This is the technique the proposal puts inside the interactive analysis flow: PCA is
+    static denoising computed once offline, t-SNE is what re-runs on whatever the analyst
+    picked. Takes a couple of seconds on a large selection, which is the honest cost of
+    fitting a real embedding rather than filtering a precomputed one.
+    """
+    ids = set(request.incident_ids)
+    if not ids:
+        raise HTTPException(status_code=400, detail="a selection is required")
+    try:
+        return ReprojectResponse(**analytics.local_reprojection(ids))
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
 
 
 # Mounted last: StaticFiles on "/" is a catch-all, so any route declared after it would

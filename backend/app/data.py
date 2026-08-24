@@ -88,6 +88,12 @@ def feature_matrix():
 
 
 @lru_cache(maxsize=1)
+def pca_components():
+    """The 20 PCA components - the input analytics 6.2 refits t-SNE on."""
+    return _read("pca_components.csv.gz")
+
+
+@lru_cache(maxsize=1)
 def feature_blocks():
     return _read("feature_blocks.csv")
 

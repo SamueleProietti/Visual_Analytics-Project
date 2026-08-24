@@ -245,4 +245,31 @@ stato reale senza dover rileggere tutta la chat.
       un interruttore di visualizzazione nel menu che il brief vieta.
       **Verificato:** 121/168 paesi affidabili sul brush 2022–24, 42 paesi tratteggiati,
       CN −6,71 / DE +5,85 / IT +5,14 identici al calcolo indipendente, clear azzera tutto.
-- [ ] Fase 13 — completata il: ___
+- [x] Fase 13 — completata il: 2026-08-23 — **AS index invariato: 61.452**
+      Analitica 6.2: `POST /api/reproject` + integrazione in View B. È **la tecnica di
+      DR integrata nel flusso interattivo**, come vuole il proposal: la PCA resta
+      denoising statico offline, il t-SNE viene **rifittato davvero** sul sottoinsieme,
+      non filtrato da un embedding precalcolato.
+      **Soglia minima n = 30, scelta misurando** e non per convenzione. Trustworthiness
+      di un t-SNE locale contro lo spazio PCA a 20 dimensioni: n=8→0,806 · n=12→0,788 ·
+      n=20→0,790 · **n=30→0,876** · n=50→0,889 · n=100→0,951. La curva gira intorno a 30.
+      Sotto, la struttura mostrata è per lo più un artefatto dell'algoritmo — l'embedding
+      instabile che §6.2 dice di rifiutare. Il progetto CIC-IDS2017 usava `n >= perplexity`,
+      che è solo il minimo tecnico di sklearn; questa soglia è più severa e ha un numero
+      dietro. **DA CONFERMARE** (CLAUDE.md §8 la elenca fra le cose da non assumere):
+      è la costante `MIN_SUBSET` in `analytics.py`, cambiarla costa una riga.
+      **Il rifiuto è un risultato, non un errore:** sotto soglia l'endpoint risponde 200
+      con `ok:false` e il motivo. Un embedding di 12 punti sembra sicuro di sé esattamente
+      quanto uno di 1.200, e l'analista non può distinguerli guardando.
+      **Banner obbligatorio:** un layout locale e quello globale si assomigliano ma i
+      loro assi significano cose diverse. Il banner viola dichiara n, perplexity e
+      trustworthiness — scambiare l'uno per l'altro è il fraintendimento più dannoso
+      che View B permetta.
+      **Trigger: solo il lasso** (CLAUDE.md §5), non ogni cambio di selezione: un refit
+      costa 2,6–2,9 s e lanciarlo a ogni ctrl-click renderebbe l'interfaccia inservibile.
+      **Bug latente corretto:** dopo una re-proiezione i punti si spostano, ma il lasso
+      testava ancora le coordinate globali — avrebbe selezionato i punti nelle vecchie
+      posizioni. Ora testa i `cx`/`cy` correnti.
+      **Verificato:** lasso di 861 incidenti → perplexity 30, trustworthiness 0,980;
+      12 incidenti → rifiuto esplicito; clear ripristina il layout globale e toglie il banner.
+- [ ] Fase 14 — completata il: ___

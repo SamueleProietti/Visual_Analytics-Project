@@ -341,3 +341,21 @@ path.country.is-unreliable {
 }
 
 .details .sectors { color: var(--ink-soft); }
+
+/* ---------- Phase 13: local re-projection ---------- */
+
+/* The banner must be impossible to miss: a local layout and the global one look alike,
+   but their axes mean different things, and mistaking one for the other is the single
+   most damaging misreading View B allows. */
+.banner-bg.is-local { fill: #6a51a3; fill-opacity: 0.92; }
+.banner-bg.is-busy  { fill: #b26a00; fill-opacity: 0.92; }
+.banner-bg.is-warn  { fill: #b26a00; fill-opacity: 0.92; }
+.banner-bg.is-error { fill: #c62828; fill-opacity: 0.92; }
+
+.banner-text {
+  fill: #ffffff;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}

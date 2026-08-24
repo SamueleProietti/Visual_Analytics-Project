@@ -142,3 +142,86 @@ def residuals_summary(rows):
         "min_expected": MIN_EXPECTED,
         "max_abs_z": round(max((abs(r["z"]) for r in reliable), default=0.0), 3),
     }
+
+
+# --------------------------------------------------------------------------------------
+# 6.2 - local re-projection
+# --------------------------------------------------------------------------------------
+
+# Below this many incidents the local embedding stops being worth showing. Chosen by
+# measurement, not convention: trustworthiness of a locally refitted t-SNE against the
+# 20-D PCA space, averaged over random subsets, reads
+#
+#     n =  8  ->  0.806        n =  30  ->  0.876
+#     n = 12  ->  0.788        n =  50  ->  0.889
+#     n = 20  ->  0.790        n = 100  ->  0.951
+#
+# so the curve turns at roughly 30. Under it the layout still draws, but the neighbour
+# structure it shows is largely an artifact of the algorithm rather than of the data -
+# exactly the "unstable embedding" sec.6.2 says to refuse. The predecessor CIC-IDS2017
+# project used n >= perplexity, which is only sklearn's hard floor; this is stricter and
+# has a number behind it.
+MIN_SUBSET = 30
+
+# Perplexity is the effective neighbour count, so it cannot approach the sample size.
+# (n-1)/3 is the standard ceiling; 30 matches the global embedding of phase 4, so a
+# local layout of a large selection is directly comparable with it.
+PERPLEXITY_CAP = 30.0
+PERPLEXITY_FLOOR = 2.0
+
+TSNE_SEED = 42          # same seed as the global embedding: a selection re-projects
+TSNE_MAX_ITER = 800     # identically every time it is made
+
+
+def adapted_perplexity(n):
+    """Perplexity for a subset of size n, capped so it stays below the sample size."""
+    return float(max(PERPLEXITY_FLOOR, min(PERPLEXITY_CAP, (n - 1) / 3.0)))
+
+
+def local_reprojection(incident_ids):
+    """Analytics 6.2 - refit t-SNE on the selected subset alone.
+
+    Returns either a fresh 2-D layout of just those incidents, or an explicit refusal
+    when the subset is too small. Refusing is the point: an embedding of twelve points
+    looks exactly as confident as an embedding of twelve hundred, and the analyst has no
+    way to tell them apart from the picture.
+    """
+    if not incident_ids:
+        raise ValueError("local_reprojection requires a non-empty selection")
+
+    from sklearn.manifold import TSNE, trustworthiness
+
+    components = data.pca_components()
+    subset = components[components["incident_id"].isin(incident_ids)]
+    n = len(subset)
+
+    if n < MIN_SUBSET:
+        return {
+            "ok": False,
+            "reason": f"too small to project: {n} incidents, minimum {MIN_SUBSET}",
+            "n": n, "minimum": MIN_SUBSET, "points": [],
+            "perplexity": None, "trustworthiness": None,
+        }
+
+    features = subset.drop(columns=["incident_id"]).to_numpy()
+    perplexity = adapted_perplexity(n)
+
+    model = TSNE(n_components=2, perplexity=perplexity, max_iter=TSNE_MAX_ITER,
+                 init="pca", random_state=TSNE_SEED)
+    embedding = model.fit_transform(features)
+
+    # Reported with the result rather than kept quiet: the analyst should be able to see
+    # how faithful this particular local layout is, not just that one was produced.
+    neighbours = int(max(1, min(10, n // 3)))
+    score = float(trustworthiness(features, embedding, n_neighbors=neighbours))
+
+    ids = subset["incident_id"].to_numpy()
+    points = [{"incident_id": int(ids[i]),
+               "x": round(float(embedding[i, 0]), 4),
+               "y": round(float(embedding[i, 1]), 4)} for i in range(n)]
+
+    return {
+        "ok": True, "reason": "", "n": n, "minimum": MIN_SUBSET, "points": points,
+        "perplexity": round(perplexity, 2),
+        "trustworthiness": round(score, 4),
+    }

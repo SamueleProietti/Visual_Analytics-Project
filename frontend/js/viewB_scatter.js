@@ -182,8 +182,18 @@ const ViewB = (() => {
         SelectionStore.setLasso(null);
         return;
       }
-      const hits = data.filter((d) =>
-        insidePolygon(state.x(d.x), state.y(d.y), state.vertices));
+      // Test against where each point is drawn NOW, not against its global coordinates.
+      // After a local re-projection the marks have moved, and using the global scales
+      // here would select whatever happens to sit at the old positions - points the
+      // analyst never enclosed.
+      const nodes = state.points.nodes();
+      const hits = [];
+      for (const node of nodes) {
+        if (insidePolygon(+node.getAttribute("cx"), +node.getAttribute("cy"),
+                          state.vertices)) {
+          hits.push(d3.select(node).datum());
+        }
+      }
       SelectionStore.setLasso(new Set(hits.map((d) => d.incident_id)));
       console.info(`[view B] lasso selected ${hits.length} incidents`);
     });
@@ -199,6 +209,7 @@ const ViewB = (() => {
   function applySelection(snapshot) {
     if (!state.points) return;
     if (snapshot.empty) {
+      restoreGlobal();
       state.points.attr("fill-opacity", 0.78).attr("stroke", "#ffffff")
         .attr("stroke-width", 0.35).classed("is-dimmed", false);
       return;
@@ -210,5 +221,93 @@ const ViewB = (() => {
       .attr("stroke-width", (d) => (snapshot.ids.has(d.incident_id) ? 0.7 : 0.2));
   }
 
-  return { init, applySelection };
+  // ---------------------------------------------------------------------------------
+  // Analytics 6.2 — local re-projection
+  //
+  // The proposal names t-SNE as the technique integrated in the interactive flow, and
+  // this is where that happens: the layout is genuinely refitted on the selected subset,
+  // not filtered from the precomputed one. Structure the global embedding had to
+  // compress can re-emerge at local scale.
+
+  let local = { active: false, banner: null };
+
+  function setBanner(text, kind) {
+    if (!state.svg) return;
+    state.svg.selectAll("g.local-banner").remove();
+    if (!text) return;
+    const g = state.svg.append("g").attr("class", "local-banner");
+    g.append("rect").attr("x", 0).attr("y", 0)
+      .attr("width", state.svg.attr("width")).attr("height", 19)
+      .attr("class", "banner-bg is-" + kind);
+    g.append("text").attr("x", 6).attr("y", 13).attr("class", "banner-text")
+      .text(text);
+  }
+
+  /** Put every point back on its global coordinates. */
+  function restoreGlobal() {
+    if (!local.active) { setBanner(null); return; }
+    local.active = false;
+    state.points.transition().duration(400)
+      .attr("cx", (d) => state.x(d.x))
+      .attr("cy", (d) => state.y(d.y));
+    setBanner(null);
+  }
+
+  /**
+   * Refit the projection on the current selection.
+   *
+   * Called by phase 15's explicit trigger rather than on every selection change: a
+   * refit costs two to three seconds, and firing it on each click of a ctrl-click
+   * sequence would make the interface feel broken.
+   */
+  async function reproject(snapshot) {
+    if (!state.points || snapshot.empty) return null;
+    setBanner("re-projecting " + snapshot.ids.size + " incidents…", "busy");
+
+    const response = await fetch("/api/reproject", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ incident_ids: [...snapshot.ids] }),
+    });
+    if (!response.ok) { setBanner("re-projection failed", "error"); return null; }
+    const result = await response.json();
+
+    // A refusal is a result. Showing an unstable layout of 12 points would look exactly
+    // as authoritative as a good one (CLAUDE.md sec.6.2).
+    if (!result.ok) {
+      setBanner(result.reason + " — showing the global layout", "warn");
+      restoreGlobalKeepBanner();
+      return result;
+    }
+
+    const byId = new Map(result.points.map((p) => [p.incident_id, p]));
+    const xs = result.points.map((p) => p.x);
+    const ys = result.points.map((p) => p.y);
+    const pad = R_MAX + 2;
+    const lx = d3.scaleLinear().domain(d3.extent(xs))
+      .range([pad, +state.svg.attr("width") - pad]);
+    const ly = d3.scaleLinear().domain(d3.extent(ys))
+      .range([+state.svg.attr("height") - pad, pad + 20]);
+
+    local.active = true;
+    state.points.transition().duration(600)
+      .attr("cx", (d) => (byId.has(d.incident_id) ? lx(byId.get(d.incident_id).x) : state.x(d.x)))
+      .attr("cy", (d) => (byId.has(d.incident_id) ? ly(byId.get(d.incident_id).y) : state.y(d.y)));
+
+    // The banner is not decoration: an analyst must never mistake a local layout for
+    // the global one, because the axes mean something different in each.
+    setBanner(`LOCAL re-projection · n=${result.n} · perplexity ${result.perplexity}`
+      + ` · trustworthiness ${result.trustworthiness.toFixed(3)}`, "local");
+    return result;
+  }
+
+  function restoreGlobalKeepBanner() {
+    if (!local.active) return;
+    local.active = false;
+    state.points.transition().duration(400)
+      .attr("cx", (d) => state.x(d.x)).attr("cy", (d) => state.y(d.y));
+  }
+
+  return { init, applySelection, reproject, restoreGlobal,
+           isLocal: () => local.active };
 })();

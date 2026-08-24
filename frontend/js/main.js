@@ -179,6 +179,15 @@ async function bootstrap() {
     ViewB.applySelection(snapshot, origin);
     ViewC.applySelection(snapshot, origin);
     ViewD.applySelection(snapshot, origin);
+
+    // Analytics 6.2 fires on the LASSO only, which is what CLAUDE.md sec.5 specifies
+    // for View B. Not on every selection change: a refit costs two to three seconds,
+    // and running it on each step of a ctrl-click sequence would make the interface
+    // feel broken while telling the analyst nothing new.
+    if (origin === "projection" && !snapshot.empty) {
+      ViewB.reproject(snapshot).catch((error) =>
+        console.error("[threat-shape] re-projection failed:", error));
+    }
   });
 
   console.info(`[selection] store ready · empty=${SelectionStore.isEmpty()} · `
