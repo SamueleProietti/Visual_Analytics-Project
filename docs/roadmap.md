@@ -250,14 +250,22 @@ stato reale senza dover rileggere tutta la chat.
       DR integrata nel flusso interattivo**, come vuole il proposal: la PCA resta
       denoising statico offline, il t-SNE viene **rifittato davvero** sul sottoinsieme,
       non filtrato da un embedding precalcolato.
-      **Soglia minima n = 30, scelta misurando** e non per convenzione. Trustworthiness
-      di un t-SNE locale contro lo spazio PCA a 20 dimensioni: n=8→0,806 · n=12→0,788 ·
-      n=20→0,790 · **n=30→0,876** · n=50→0,889 · n=100→0,951. La curva gira intorno a 30.
-      Sotto, la struttura mostrata è per lo più un artefatto dell'algoritmo — l'embedding
-      instabile che §6.2 dice di rifiutare. Il progetto CIC-IDS2017 usava `n >= perplexity`,
-      che è solo il minimo tecnico di sklearn; questa soglia è più severa e ha un numero
-      dietro. **DA CONFERMARE** (CLAUDE.md §8 la elenca fra le cose da non assumere):
-      è la costante `MIN_SUBSET` in `analytics.py`, cambiarla costa una riga.
+      **Soglia minima n = 30, misurata** — `scripts/04_threshold_check.py` la riproduce.
+      Trustworthiness con **k fisso a 4** e media su **15 sottoinsiemi casuali** per
+      dimensione (media ± dev.st): n=10→0,817±0,055 · n=12→0,814±0,049 ·
+      n=15→0,899±0,045 · n=20→0,921±0,033 · **n=30→0,937±0,023** · n=60→0,960±0,011 ·
+      n=100→0,970±0,008.
+      La media gira presto, fra 12 e 15. **È la dispersione a decidere:** a n=15 lo
+      stesso sottoinsieme può dare da 0,79 a 0,96 a seconda di quali punti capitano,
+      quindi un buon layout locale lì è tanto fortuna quanto segnale. La dev.st si
+      dimezza fra 25 e 30. **30 è il punto in cui il risultato diventa riproducibile,
+      non quello in cui diventa buono.**
+      **Correzione:** la prima misura di questa fase era metodologicamente sbagliata —
+      un solo sottoinsieme per dimensione e `k` che cresceva con `n`, cioè lo stesso
+      errore di confrontabilità già corretto in Fase 4. Dava una curva diversa e falsa
+      (n=30→0,876, n=12→0,788). Trovata perché i numeri non si riproducevano rilanciando
+      il comando di test. La soglia resta 30, la motivazione è cambiata.
+      **DA CONFERMARE** (CLAUDE.md §8): costante `MIN_SUBSET` in `analytics.py`.
       **Il rifiuto è un risultato, non un errore:** sotto soglia l'endpoint risponde 200
       con `ok:false` e il motivo. Un embedding di 12 punti sembra sicuro di sé esattamente
       quanto uno di 1.200, e l'analista non può distinguerli guardando.

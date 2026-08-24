@@ -148,19 +148,28 @@ def residuals_summary(rows):
 # 6.2 - local re-projection
 # --------------------------------------------------------------------------------------
 
-# Below this many incidents the local embedding stops being worth showing. Chosen by
-# measurement, not convention: trustworthiness of a locally refitted t-SNE against the
-# 20-D PCA space, averaged over random subsets, reads
+# Below this many incidents the local embedding stops being worth showing.
 #
-#     n =  8  ->  0.806        n =  30  ->  0.876
-#     n = 12  ->  0.788        n =  50  ->  0.889
-#     n = 20  ->  0.790        n = 100  ->  0.951
+# Chosen by measurement. Trustworthiness of a locally refitted t-SNE against the 20-D
+# PCA space, at a FIXED k of 4 and averaged over 15 random subsets per size (mean, then
+# standard deviation across those subsets):
 #
-# so the curve turns at roughly 30. Under it the layout still draws, but the neighbour
-# structure it shows is largely an artifact of the algorithm rather than of the data -
-# exactly the "unstable embedding" sec.6.2 says to refuse. The predecessor CIC-IDS2017
-# project used n >= perplexity, which is only sklearn's hard floor; this is stricter and
-# has a number behind it.
+#     n = 10  ->  0.817  +/- 0.055        n =  30  ->  0.937  +/- 0.023
+#     n = 12  ->  0.814  +/- 0.049        n =  60  ->  0.960  +/- 0.011
+#     n = 15  ->  0.899  +/- 0.045        n = 100  ->  0.970  +/- 0.008
+#     n = 20  ->  0.921  +/- 0.033
+#
+# The mean turns early, between 12 and 15. The spread is what decides the threshold: at
+# n=15 the same-sized subset can score anywhere from 0.79 to 0.96 depending on which
+# points happen to fall in it, so a good-looking local layout there is as much luck as
+# signal. The spread halves by n=25-30 and keeps falling. 30 is therefore where the
+# result becomes REPRODUCIBLE, not where it becomes good.
+#
+# Both k and the number of repetitions matter, and getting them wrong is easy: an
+# earlier version of this measurement used one subset per size and let k grow with n,
+# which compares quantities that are not comparable and produced a different, wrong
+# curve. The predecessor CIC-IDS2017 project used n >= perplexity, which is only
+# sklearn's hard floor.
 MIN_SUBSET = 30
 
 # Perplexity is the effective neighbour count, so it cannot approach the sample size.
