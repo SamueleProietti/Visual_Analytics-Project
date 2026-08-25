@@ -100,7 +100,7 @@ def health() -> HealthResponse:
     missing = data.missing_artifacts()
     return HealthResponse(
         status="ok",
-        phase=14,
+        phase=15,
         datasets=datasets,
         data_ready=all(d.present for d in datasets),
         n_incidents=N_INCIDENTS,

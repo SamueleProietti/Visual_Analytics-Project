@@ -308,4 +308,29 @@ stato reale senza dover rileggere tutta la chat.
       **Materiale per la Fase 17:** IT vs DE → `init: Non-state-group` +27,6pp (z 4,6) e
       `init: Not attributed` −20,3pp (z −3,5): gli incidenti italiani sono attribuiti a
       gruppi non statali molto più di quelli tedeschi, che restano più spesso anonimi.
-- [ ] Fase 15 — completata il: ___
+- [x] Fase 15 — completata il: 2026-08-23 — **AS index invariato: 61.452**
+      Fase di **verifica**, non di costruzione: il contratto di interazione dei due
+      vincoli graded (§2 nessun menu può avviare un'analitica, §6 nessun risultato prima
+      di una selezione) è ora **dimostrabile e ri-verificabile**, non asserito.
+      **`scripts/05_verify_triggers.py` — 17 verifiche statiche + API**, tutte passate:
+      · zero `<select>`, `<option>`, radio o checkbox in tutto il frontend;
+      · zero `<button>` statici in `index.html` (i due del toggle sono generati da D3);
+      · `setCountries()` scritto **solo** da `viewA_map.js`, `setLasso()` **solo** da
+        `viewB_scatter.js`, `setYearRange()` **solo** da `viewC_timeline.js` —
+        nessun quarto scrittore dello store;
+      · tutte e 4 le viste reagiscono **solo** tramite la sottoscrizione allo store;
+      · `bootstrap()` non invoca nessuna analitica prima della sottoscrizione;
+      · `GET` su `/api/residuals`, `/api/reproject`, `/api/contrast` → **404**: non
+        esiste un URL digitabile che produca un risultato globale;
+      · `POST` con selezione vuota → **422** su tutti e tre.
+      **`verifyTriggers()` in `main.js` — 13 verifiche runtime**, eseguibile da console
+      durante la demo: nessuna barra, nessun tratteggio, nessun banner prima di
+      un'interazione; **premere il toggle non avvia alcun calcolo** (è un interruttore di
+      visualizzazione, non un trigger); click e brush producono risultati; il clear
+      rimuove *tutto* e riporta il toggle a "Incident volume".
+      Scritta come funzione da invocare e **non** come check automatico all'avvio: un
+      test che girasse al caricamento sarebbe esso stesso una computazione prima che una
+      selezione esista.
+      **Il lasso** non è nella batteria runtime (simulare il trascinamento è fragile):
+      va provato a mano, ed è verificato in Fase 13.
+- [ ] Fase 16 — completata il: ___
