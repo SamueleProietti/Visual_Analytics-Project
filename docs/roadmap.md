@@ -323,7 +323,7 @@ stato reale senza dover rileggere tutta la chat.
       · `GET` su `/api/residuals`, `/api/reproject`, `/api/contrast` → **404**: non
         esiste un URL digitabile che produca un risultato globale;
       · `POST` con selezione vuota → **422** su tutti e tre.
-      **`verifyTriggers()` in `main.js` — 13 verifiche runtime**, eseguibile da console
+      **`verifyTriggers()` in `frontend/js/verify.js` — 13 verifiche runtime**, da console
       durante la demo: nessuna barra, nessun tratteggio, nessun banner prima di
       un'interazione; **premere il toggle non avvia alcun calcolo** (è un interruttore di
       visualizzazione, non un trigger); click e brush producono risultati; il clear
@@ -333,4 +333,16 @@ stato reale senza dover rileggere tutta la chat.
       selezione esista.
       **Il lasso** non è nella batteria runtime (simulare il trascinamento è fragile):
       va provato a mano, ed è verificato in Fase 13.
+      **Due difetti trovati DAL verificatore stesso, dopo il primo commit:**
+      · `verifyTriggers()` viveva in `main.js` e scriveva nello store → il controllo lo
+        segnalava come **quarto trigger**, correttamente: una funzione spedita nel
+        bootstrap che può impostare un intervallo temporale senza interazione *è* un
+        quarto percorso verso lo store. Spostata in `verify.js`, escluso per nome dalla
+        verifica, e **l'esclusione è a sua volta verificata** (un elenco di eccezioni che
+        nessuno controlla è il modo in cui un vero quarto trigger finirebbe per
+        nascondersi). Aggiunti check che il file di test non si auto-invochi.
+      · lo script **saltava** le 6 verifiche API a server spento e concludeva comunque
+        `passed` con exit 0. Ora gli skip sono registrati e producono un fallimento
+        esplicito: *a partial pass is not a pass*.
+      **Totale: 21 verifiche statiche+API e 13 runtime, tutte passate.**
 - [ ] Fase 16 — completata il: ___

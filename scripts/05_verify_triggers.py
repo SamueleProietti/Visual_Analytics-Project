@@ -11,8 +11,8 @@ break by accident:
 
 This script checks both, statically against the source and dynamically against a running
 backend, so the claim can be re-verified rather than asserted. The runtime half of the
-check - what the four views actually do in a browser - is in verifyTriggers() in
-frontend/js/main.js, callable from the console.
+check - what the four views actually do in a browser - is verifyTriggers() in
+frontend/js/verify.js, callable from the console.
 
 Run (with the server up for the API section):
     .venv/Scripts/python scripts/05_verify_triggers.py
@@ -40,7 +40,16 @@ ALLOWED_TRIGGERS = {
     "setYearRange": "viewC_timeline.js",  # timeline brush
 }
 
+# The runtime verification tool has to write to the store - simulating an interaction is
+# its job - so it is excluded from the writer audit. It is excluded BY NAME and the
+# exclusion is itself checked below, because an exemption list nobody audits is how a
+# real fourth trigger would eventually slip in. This file earned its place on the list by
+# being caught: the check first ran clean, then failed once verifyTriggers() was added to
+# main.js, which is precisely the violation it exists to detect.
+TEST_ONLY_FILES = {"verify.js"}
+
 results = []
+skipped = []
 
 
 def check(label, ok, detail=""):
@@ -80,6 +89,8 @@ def check_store_writers():
     rule("2. ONLY THREE THINGS MAY START A SELECTION")
     writers = {}
     for path in sorted(JS.glob("*.js")):
+        if path.name in TEST_ONLY_FILES:
+            continue
         text = path.read_text(encoding="utf-8")
         for match in re.finditer(r"SelectionStore\.(set\w+|clear)\s*\(", text):
             name = match.group(1)
@@ -100,6 +111,31 @@ def check_store_writers():
     check("no store writer beyond the three permitted triggers",
           set(writers) <= set(ALLOWED_TRIGGERS) | {"clear"},
           f"unexpected: {sorted(set(writers) - set(ALLOWED_TRIGGERS) - {'clear'})}")
+
+    # Audit the exemption itself. A skip list that nobody checks is how a genuine fourth
+    # trigger would eventually hide.
+    for name in sorted(TEST_ONLY_FILES):
+        path = JS / name
+        check(f"{name} exists and is marked as a test tool", path.is_file()
+              and "TEST tool" in path.read_text(encoding="utf-8"))
+    check("only one file is exempt from the writer audit", len(TEST_ONLY_FILES) == 1,
+          f"exempt: {sorted(TEST_ONLY_FILES)}")
+
+    # The test tool must not run itself: an automatic check would be a computation
+    # happening before a selection exists, which is the very rule under test.
+    #
+    # Comments are stripped before searching. The first version of this check matched
+    # the "await verifyTriggers()" inside the file's own usage comment and failed on a
+    # line of documentation - a check that reads prose as code is worse than no check,
+    # because it trains you to ignore its output.
+    verify_source = (JS / "verify.js").read_text(encoding="utf-8")
+    code_only = re.sub(r"/\*.*?\*/", "", verify_source, flags=re.DOTALL)
+    code_only = re.sub(r"//.*", "", code_only)
+
+    check("the test tool never registers a startup listener",
+          "addEventListener" not in code_only)
+    check("the test tool is never self-invoked",
+          not re.search(r"^\s*(await\s+)?verifyTriggers\s*\(", code_only, re.MULTILINE))
 
 
 def check_analytics_reachability():
@@ -132,8 +168,11 @@ def check_api_refuses_empty():
             check(f"GET {endpoint} is not available", error.code in (404, 405),
                   f"HTTP {error.code}")
         except OSError:
+            # Recorded, not merely printed. A skipped section that still lets the script
+            # exit 0 is how a verification suite quietly stops verifying anything.
+            skipped.append(f"{endpoint} (server not reachable on {BASE})")
             print(f"  [SKIP] {endpoint} - server not running on {BASE}")
-            return
+            continue
 
         # POST with an empty selection must be rejected by validation, not answered.
         request = urllib.request.Request(
@@ -153,9 +192,18 @@ def main():
     check_analytics_reachability()
     check_api_refuses_empty()
 
-    rule(f"RESULT - {sum(results)}/{len(results)} checks passed")
+    rule(f"RESULT - {sum(results)}/{len(results)} checks passed"
+         + (f", {len(skipped)} SKIPPED" if skipped else ""))
     if not all(results):
         raise SystemExit("the interaction contract is violated")
+
+    if skipped:
+        for item in skipped:
+            print(f"  [SKIPPED] {item}")
+        raise SystemExit(
+            "\nINCOMPLETE: the API half of the contract was not checked.\n"
+            "Start the server and re-run - a partial pass is not a pass.")
+
     print("  Lasso, map click and timeline brush are the only ways to start an analytic,")
     print("  and no analytic can produce a result before a selection exists.")
 
