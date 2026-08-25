@@ -36,12 +36,28 @@ const ViewD = (() => {
       .text(text);
   }
 
-  /** The load-time state, and the state whenever a selection is cleared. */
+  /** The load-time state, and the state whenever a selection is cleared.
+   *
+   * The legend stays populated even with nothing to plot. Leaving it blank read as a
+   * missing legend - the thing CLAUDE.md sec.2 penalises - when in fact there was simply
+   * nothing yet to decode. Showing the encoding before the bars exist also tells the
+   * analyst what the panel is going to answer, without asserting any result.
+   */
   function showEmpty(reason) {
     d3.select("#view-d-canvas").html(
       `<span class="placeholder">${reason || "select a country or lasso a cluster"}</span>`);
-    d3.select("#view-d-legend").html("");
     setHeader("no selection", true);
+
+    const legend = d3.select("#view-d-legend");
+    legend.selectAll("*").remove();
+    for (const [colour, text] of [[OVER, "more frequent in selection"],
+                                  [UNDER, "less frequent in selection"]]) {
+      const item = legend.append("span").attr("class", "legend-item is-inactive");
+      item.append("span").attr("class", "legend-swatch").style("background", colour);
+      item.append("span").text(text);
+    }
+    legend.append("span").attr("class", "legend-note")
+      .text("bar length = difference in percentage points · order = |z|, i.e. reliability");
   }
 
   /**

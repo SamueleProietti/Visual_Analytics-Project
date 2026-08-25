@@ -363,3 +363,8 @@ path.country.is-unreliable {
 /* Contrast bars that fail the two-proportion validity test: shown, faded and marked,
    never removed - sec.6.1's rule applied to 6.3. */
 rect.bar.is-unreliable-bar { stroke: #8a8a8a; stroke-width: 0.8; stroke-dasharray: 2 2; }
+
+/* View D's legend is shown before any bars exist, so the reader knows what the panel
+   will answer. Dimmed, because it describes an encoding that is not yet in use - a
+   legend at full strength beside an empty chart would imply there is something to read. */
+.legend-item.is-inactive { opacity: 0.5; }

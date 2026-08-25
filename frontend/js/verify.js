@@ -96,3 +96,67 @@ async function verifyTriggers() {
     `font-weight:bold;color:${passed === results.length ? "green" : "red"}`);
   return { passed, total: results.length };
 }
+
+/**
+ * Phase 16 — the runtime half of the visual-encoding check.
+ *
+ * scripts/06_verify_visual.py measures the palettes against simulated colour-vision
+ * deficiencies and reads the source for divergent-scale misuse. What it cannot see is
+ * whether a legend is actually populated on screen in every state the interface passes
+ * through - and an empty legend container reads as a missing legend, which is the thing
+ * CLAUDE.md sec.2 charges two points for.
+ *
+ *     await verifyLegends()
+ */
+async function verifyLegends() {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const results = [];
+  const check = (label, ok, detail = "") => {
+    results.push(ok);
+    console.log(`[${ok ? "PASS" : "FAIL"}] ${label}${detail ? "  - " + detail : ""}`);
+  };
+
+  const legends = () => ["a", "b", "c", "d"].map((v) => {
+    const el = document.getElementById(`view-${v}-legend`);
+    return {
+      view: v.toUpperCase(),
+      chars: el.textContent.trim().length,
+      symbols: el.querySelectorAll(".legend-swatch, circle").length,
+    };
+  });
+
+  const assertAll = (label) => {
+    for (const l of legends()) {
+      check(`${label} · View ${l.view} legend is populated`,
+        l.chars > 0 && l.symbols > 0, `${l.chars} chars, ${l.symbols} symbols`);
+    }
+    check(`${label} · no view scrolls`,
+      ![...document.querySelectorAll(".view-canvas")].some(
+        (c) => c.scrollHeight > c.clientHeight || c.scrollWidth > c.clientWidth));
+  };
+
+  console.log("%c--- legends and fixed size, in every state ---", "font-weight:bold");
+
+  SelectionStore.clear();
+  await wait(600);
+  assertAll("empty");
+
+  const country = [...document.querySelectorAll("path.country")]
+    .find((p) => (p.querySelector("title") || {}).textContent?.startsWith("Germany"));
+  country.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  await wait(2000);
+  assertAll("selection");
+
+  SelectionStore.setYearRange([2022, 2024]);
+  await wait(2000);
+  assertAll("residual");
+
+  SelectionStore.clear();
+  await wait(700);
+  assertAll("cleared");
+
+  const passed = results.filter(Boolean).length;
+  console.log(`%c${passed}/${results.length} legend checks passed`,
+    `font-weight:bold;color:${passed === results.length ? "green" : "red"}`);
+  return { passed, total: results.length };
+}

@@ -345,4 +345,30 @@ stato reale senza dover rileggere tutta la chat.
         `passed` con exit 0. Ora gli skip sono registrati e producono un fallimento
         esplicito: *a partial pass is not a pass*.
       **Totale: 21 verifiche statiche+API e 13 runtime, tutte passate.**
-- [ ] Fase 16 — completata il: ___
+- [x] Fase 16 — completata il: 2026-08-23 — **AS index invariato: 61.452**
+      Rifinitura visiva, verificata invece che asserita: `scripts/06_verify_visual.py`
+      **34/34** + `verifyLegends()` runtime **20/20**.
+      **Le palette sono misurate, non dichiarate sicure.** Ogni palette passa per una
+      simulazione di protanopia, deuteranopia e tritanopia (Viénot-Brettel-Mollon) e le
+      distanze fra colori si calcolano in CIE Lab. Tre tipi di scala, tre regole diverse:
+      · **categorica** → ogni coppia distinguibile (ΔE ≥ 10): i colori portano identità;
+      · **sequenziale** → luminosità monotona: la rampa porta ordine, non identità;
+      · **divergente** → luminosità a V + estremi lontani: va scuro-chiaro-scuro *per
+        progetto*.
+      **Bug reale nella palette, trovato dalla misura:** "essere una palette sicura" non
+      è "essere sicura in combinazione". In deuteranopia l'arancione `#E69F00` e il
+      vermiglio `#D55E00` di Okabe-Ito, entrambi in uso in View C, collassavano a
+      **ΔE 6,6** — praticamente lo stesso colore. Sostituito con il giallo `#F0E442`
+      della stessa palette: **ΔE 13,3**. Riscontro anche in View D: gli estremi della
+      divergente restano a ΔE 44,9–96,9 sotto tutte e tre le deficienze.
+      **Bug nel test, trovato subito dopo:** la prima versione applicava alle scale
+      divergenti la regola delle sequenziali e bocciava il residuo di View A su tutte e
+      tre le deficienze — marcando come difetto un progetto corretto. Un test che usa il
+      criterio sbagliato è peggio di nessun test.
+      **Legenda di View D mai più vuota:** senza selezione mostrava 0 caratteri e 0
+      simboli. Un contenitore vuoto si legge come legenda mancante (2 punti). Ora mostra
+      la codifica in grigio attenuato anche prima che esistano barre: dice all'analista
+      cosa il pannello risponderà, senza asserire alcun risultato.
+      Verificato che **tutte e 4 le legende sono popolate in tutti e 4 gli stati**
+      (vuoto, selezione, residuo, dopo-clear) e che nessuna vista scrolla in nessuno.
+- [ ] Fase 17 — completata il: ___

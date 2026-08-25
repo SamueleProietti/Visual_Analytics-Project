@@ -15,12 +15,18 @@ const ViewC = (() => {
   // measured incident_type at 7 atomic categories, under the 12 that CLAUDE.md sec.2
   // sets as the limit for a categorical timeline palette, so no regrouping was needed
   // and each type keeps its own hue.
+  //
+  // "Data theft & Doxing" uses the palette's yellow rather than its orange. Being from a
+  // safe palette is not the same as being safe in combination: measured under simulated
+  // deuteranopia, the orange (#E69F00) and the vermillion (#D55E00) already in use fell
+  // to a Delta E of 6.6 - effectively the same colour. The yellow restores it to 13.3.
+  // See scripts/06_verify_visual.py.
   const PALETTE = {
     "Hijacking with Misuse": "#0072B2",
     "Disruption": "#D55E00",
     "Data theft": "#009E73",
     "Ransomware": "#CC79A7",
-    "Data theft & Doxing": "#E69F00",
+    "Data theft & Doxing": "#F0E442",
     "Hijacking without Misuse": "#56B4E9",
     "Not available": "#999999",
   };
