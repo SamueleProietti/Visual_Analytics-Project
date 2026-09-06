@@ -6,20 +6,24 @@
   <title>Threat-Shape</title>
   <!-- ?v= is bumped when an asset changes, so a browser holding an old copy is
        forced to refetch instead of silently running stale code. -->
-  <link rel="stylesheet" href="css/style.css?v=23">
+  <link rel="stylesheet" href="css/style.css?v=25">
 </head>
 <body>
 
+  <div class="app-shell">
+
   <header class="app-header">
     <h1>THREAT-SHAPE</h1>
-    <!-- Filled by main.js from GET /api/health: the phase-1 proof that the two
-         halves of the stack are talking to each other. -->
-    <div id="backend-status" class="status status--pending">connecting to backend…</div>
   </header>
 
+  <!-- Shown by main.js only when the backend is unreachable or the cached artifacts are
+       missing. Hidden the rest of the time: a standing "all ok" badge is chrome, and the
+       health figures it used to carry belong in the report, not on the analyst's screen. -->
+  <div id="app-alert" class="app-alert" hidden></div>
+
   <!-- Grid mirrors docs/Img_mockup.png: A and B on top, D bottom-left, C bottom-right.
-       Views are fixed-size and never scroll (CLAUDE.md sec.2: scrollable views cost
-       2 points unless justified). -->
+       Views never scroll (CLAUDE.md sec.2: scrollable views cost 2 points unless
+       justified); the columns stretch to the viewport, the heights stay fixed. -->
   <main class="view-grid">
 
     <section class="view" id="view-a">
@@ -70,21 +74,17 @@
 
   </main>
 
-  <footer class="app-footer">
-    <span id="dataset-summary">…</span>
-    <span class="footer-sep">·</span>
-    <span>Sapienza University of Rome — Visual Analytics</span>
-  </footer>
+  </div><!-- /.app-shell -->
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
-  <script src="js/selectionStore.js?v=23"></script>
-  <script src="js/viewA_map.js?v=23"></script>
-  <script src="js/viewB_scatter.js?v=23"></script>
-  <script src="js/viewC_timeline.js?v=23"></script>
-  <script src="js/viewD_contrast.js?v=23"></script>
-  <script src="js/main.js?v=23"></script>
+  <script src="js/selectionStore.js?v=25"></script>
+  <script src="js/viewA_map.js?v=25"></script>
+  <script src="js/viewB_scatter.js?v=25"></script>
+  <script src="js/viewC_timeline.js?v=25"></script>
+  <script src="js/viewD_contrast.js?v=25"></script>
+  <script src="js/main.js?v=25"></script>
   <!-- Verification tool, not application code. Kept separate so the trigger
        audit can prove that only three things write to the selection store. -->
-  <script src="js/verify.js?v=23"></script>
+  <script src="js/verify.js?v=25"></script>
 </body>
 </html>

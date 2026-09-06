@@ -40,10 +40,25 @@ async function getJSON(url) {
   return response.json();
 }
 
-function setStatus(text, kind) {
-  const el = document.getElementById("backend-status");
+/**
+ * Show a failure banner, or hide it when everything is working.
+ *
+ * Asymmetric on purpose. A healthy stack says nothing - the four views ARE the evidence
+ * that the backend answered. Only the states where the interface would otherwise look
+ * merely empty (backend down, artifacts missing) get a visible line, because "no data"
+ * and "no connection" are indistinguishable to the eye and mean very different things.
+ */
+function setAlert(text, kind) {
+  const el = document.getElementById("app-alert");
+  if (!el) return;
+  if (kind === "ok") {
+    el.hidden = true;
+    el.textContent = "";
+    return;
+  }
+  el.hidden = false;
   el.textContent = text;
-  el.className = `status status--${kind}`;
+  el.className = kind === "pending" ? "app-alert app-alert--pending" : "app-alert";
 }
 
 /** Phase-1 round trip: prove the frontend and backend actually talk to each other. */
@@ -53,24 +68,23 @@ async function checkBackend() {
 
     const missing = health.datasets.filter((d) => !d.present);
     if (health.data_ready) {
-      setStatus(`backend ok · phase ${health.phase} · all 4 datasets present`, "ok");
+      setAlert("", "ok");
     } else {
       const names = missing.map((d) => d.name).join(", ");
-      setStatus(`backend ok · missing raw data: ${names}`, "error");
+      setAlert(`backend ok, but raw data is missing: ${names}`, "error");
     }
 
-    // toLocaleString gives the thousands separators the report uses (61,452).
-    document.getElementById("dataset-summary").textContent =
-      `${health.n_incidents.toLocaleString("en")} incidents × ` +
-      `${health.n_raw_analytical_columns} analytical columns · ` +
-      `AS index ${health.as_index.toLocaleString("en")}`;
-
+    // The corpus size and AS index used to sit in a page footer. They are report and
+    // slide material, not something the analyst reads while working, so they stay on
+    // /api/health and in the console - one place, still checkable at the oral exam.
+    console.info(`[threat-shape] ${health.n_incidents.toLocaleString("en")} incidents × `
+      + `${health.n_raw_analytical_columns} analytical columns · `
+      + `AS index ${health.as_index.toLocaleString("en")}`);
     console.info("[threat-shape] backend health:", health);
     return health;
   } catch (error) {
-    setStatus(`backend unreachable — ${error.message}`, "error");
-    document.getElementById("dataset-summary").textContent =
-      "backend unreachable: start uvicorn, then reload";
+    setAlert(`backend unreachable — ${error.message}. `
+      + "Start uvicorn, then reload.", "error");
     console.error("[threat-shape] health check failed:", error);
     return null;
   }
@@ -100,7 +114,7 @@ async function loadData() {
     });
     return elapsed;
   } catch (error) {
-    setStatus(`failed to load data — ${error.message}`, "error");
+    setAlert(`failed to load data — ${error.message}`, "error");
     console.error("[threat-shape] data load failed:", error);
     return null;
   }
@@ -115,7 +129,7 @@ async function bootstrap() {
   if (typeof d3 === "undefined") {
     // The CDN is the only external dependency; failing loudly here beats four views
     // silently rendering nothing later.
-    setStatus("D3 failed to load from CDN — check your connection", "error");
+    setAlert("D3 failed to load from CDN — check your connection", "error");
     console.error("[threat-shape] d3 is undefined; the CDN script did not load.");
     return;
   }
@@ -124,7 +138,7 @@ async function bootstrap() {
   const health = await checkBackend();
   if (!health) return;
   if (!health.artifacts_ready) {
-    setStatus(`missing artifacts: ${health.missing_artifacts.join(", ")} — `
+    setAlert(`missing artifacts: ${health.missing_artifacts.join(", ")} — `
       + `run the scripts in scripts/`, "error");
     return;
   }

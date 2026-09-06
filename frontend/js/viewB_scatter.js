@@ -87,6 +87,38 @@ const ViewB = (() => {
     }
   }
 
+  /**
+   * Map an embedding onto the canvas with ONE scale factor for both axes.
+   *
+   * Not two independent d3.extent stretches, which is what this did until the grid
+   * became fluid. t-SNE axes carry no units, but the embedding is still isotropic: the
+   * ratio of two distances inside it is the only thing it does assert. Stretching x and
+   * y by different factors destroys exactly that - a round cluster is drawn as an
+   * ellipse, and the wider the view gets the more elongated it becomes. The unused space
+   * is left as margin instead, and the plot is centred in it.
+   *
+   * @param {number} topPad extra room at the top, for the local-projection banner
+   */
+  function fitScales(xs, ys, width, height, topPad = 0) {
+    const [x0, x1] = d3.extent(xs);
+    const [y0, y1] = d3.extent(ys);
+    const pad = R_MAX + 2;
+    const spanX = (x1 - x0) || 1;
+    const spanY = (y1 - y0) || 1;
+
+    const k = Math.min((width - 2 * pad) / spanX,
+                       (height - 2 * pad - topPad) / spanY);
+
+    const left = (width - k * spanX) / 2;
+    const top = topPad + (height - topPad - k * spanY) / 2;
+
+    return {
+      x: d3.scaleLinear().domain([x0, x1]).range([left, left + k * spanX]),
+      // Inverted range: SVG y grows downward, the embedding's does not.
+      y: d3.scaleLinear().domain([y0, y1]).range([top + k * spanY, top]),
+    };
+  }
+
   function init(incidents) {
     const host = d3.select("#view-b-canvas");
     host.html("");
@@ -97,11 +129,8 @@ const ViewB = (() => {
     state.maxLog = Math.max(...incidents.map(
       (d) => Math.log1p(Math.max(0, d.affected_entities_value ?? 0))));
 
-    const pad = R_MAX + 2;
-    const x = d3.scaleLinear()
-      .domain(d3.extent(incidents, (d) => d.x)).range([pad, width - pad]);
-    const y = d3.scaleLinear()
-      .domain(d3.extent(incidents, (d) => d.y)).range([height - pad, pad]);
+    const { x, y } = fitScales(incidents.map((d) => d.x), incidents.map((d) => d.y),
+      width, height);
 
     const svg = host.append("svg")
       .attr("width", width).attr("height", height)
@@ -283,11 +312,11 @@ const ViewB = (() => {
     const byId = new Map(result.points.map((p) => [p.incident_id, p]));
     const xs = result.points.map((p) => p.x);
     const ys = result.points.map((p) => p.y);
-    const pad = R_MAX + 2;
-    const lx = d3.scaleLinear().domain(d3.extent(xs))
-      .range([pad, +state.svg.attr("width") - pad]);
-    const ly = d3.scaleLinear().domain(d3.extent(ys))
-      .range([+state.svg.attr("height") - pad, pad + 20]);
+    // Same isotropic fit as the global layout. Using a different mapping here would make
+    // the two embeddings visually incomparable for a reason that has nothing to do with
+    // the data - 20px of top padding leaves room for the banner.
+    const { x: lx, y: ly } = fitScales(xs, ys, +state.svg.attr("width"),
+      +state.svg.attr("height"), 20);
 
     local.active = true;
     state.points.transition().duration(600)

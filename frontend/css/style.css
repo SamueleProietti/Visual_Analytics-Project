@@ -17,12 +17,22 @@
   --pending: #b26a00;
   --error: #c62828;
 
-  /* Fixed view size. CLAUDE.md sec.2 penalises unjustified scrollable views, so the
-     views never scroll - they are sized once and their contents fit. */
-  /* Sized so two columns fit a 1280px viewport with the vertical scrollbar present,
-     and all four views fit one screen during the live demo. */
-  --view-w: 590px;
+  /* The views never scroll (CLAUDE.md sec.2 penalises unjustified scrollable views).
+     "Fixed-size" there means the contents always fit without scrolling, not a fixed
+     pixel width - so the columns stretch to fill the viewport, and each view measures
+     its own box at draw time. What stays fixed is the HEIGHT: a view that grew taller
+     with its content is exactly the case the rule is aimed at.
+
+     --view-min-w is the width below which the grid drops to one column rather than
+     squeezing two. Set from View D, the most width-hungry view: its 168px label gutter
+     plus a readable bar field stops working under roughly 460px. */
+  --view-min-w: 460px;
   --view-h: 340px;
+
+  /* Caps the grid on very wide monitors, and centres it there. Uncapped, two columns on
+     a 4K screen sit so far apart that comparing a pair of coordinated views means moving
+     the head - which works against the coordination the whole tool is built on. */
+  --page-max-w: 1760px;
 }
 
 * { box-sizing: border-box; }
@@ -33,6 +43,13 @@ body {
   background: var(--surface-sunken);
   color: var(--ink);
   font: 14px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+/* One centred column holding the header and the grid, so the whole page shares the same
+   left and right edge instead of the title hugging one side of a centred grid. */
+.app-shell {
+  max-width: var(--page-max-w);
+  margin: 0 auto;
 }
 
 /* ---------- header ---------- */
@@ -51,16 +68,22 @@ body {
   letter-spacing: 0.08em;
 }
 
-.status {
+/* Failure banner, not a status chip. It stays hidden while the stack is healthy: a
+   permanent green "everything is fine" badge is chrome the analyst has to look past on
+   every glance, and it trains the eye to ignore the one place a real fault would appear.
+   Shown only when the backend is unreachable or the cached artifacts are missing - the
+   two states where the views would otherwise just be silently empty. */
+.app-alert {
+  margin-bottom: 14px;
   font-size: 12px;
-  padding: 3px 10px;
+  padding: 5px 10px;
   border-radius: 3px;
   border: 1px solid currentColor;
+  color: var(--error);
+  background: #fff5f5;
 }
 
-.status--ok      { color: var(--ok); }
-.status--pending { color: var(--pending); }
-.status--error   { color: var(--error); }
+.app-alert--pending { color: var(--pending); background: #fffaf0; }
 
 /* ---------- view grid ---------- */
 
@@ -68,12 +91,23 @@ body {
    lays out as A B / D C - the mockup's arrangement. */
 .view-grid {
   display: grid;
-  /* auto-fit rather than a hard "repeat(2, …)": the views keep their fixed size, but on
-     a viewport too narrow for two columns the grid wraps instead of forcing the page
-     into a horizontal scroll. The views themselves still never scroll. */
-  grid-template-columns: repeat(auto-fit, var(--view-w));
+  /* Exactly two columns, sharing the full width via 1fr instead of sitting at a fixed
+     590px and leaving a dead margin on the right.
+     NOT repeat(auto-fit, ...): auto-fit decides the column COUNT from the available
+     width, and on a 1600px screen it fitted three - which silently breaks the A B / D C
+     pairing the mockup specifies. The count is a design decision here, not a
+     consequence of the viewport, so it is stated.
+     minmax(0, 1fr) rather than plain 1fr: a grid track's default minimum is auto, which
+     an SVG wider than its share can push open, forcing a horizontal scroll. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 22px;
-  justify-content: start;
+}
+
+/* Below two readable columns the pairing is worth less than the width, so the grid
+   stacks rather than squeezing both views under the point where View D's label gutter
+   stops being legible. 2 x 460px + gap + the body padding. */
+@media (max-width: 990px) {
+  .view-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 .view {
@@ -128,16 +162,6 @@ body {
   font-size: 11px;
   color: var(--ink-soft);
 }
-
-/* ---------- footer ---------- */
-
-.app-footer {
-  margin-top: 18px;
-  font-size: 11px;
-  color: var(--ink-soft);
-}
-
-.footer-sep { margin: 0 6px; }
 
 /* ---------- View A: map, toggle, details ---------- */
 
