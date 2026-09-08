@@ -192,8 +192,20 @@ in the predecessor CIC-IDS2017 project for rare classes.
 
 ### 6.3 Contrastive z-scores
 Same z-score standardization principle as 6.1, applied per feature: the difference in
-proportion between the selection and its complement, expressed in standard deviations. When 2+ countries are selected,
-switch to a direct A-vs-B contrast instead of vs-rest. Rank output by |z-score|.
+proportion between the selection and its complement, expressed in standard deviations.
+When **exactly two** countries are selected, switch to a direct A-vs-B contrast instead
+of vs-rest. Rank output by |z-score|.
+
+This originally read "2+ countries", which has no well-defined meaning above two: with
+three or more there is no "B" until one member is nominated, and the only thing
+available to nominate it with is click order. Measured on the real corpus, that choice
+decides the answer — the same three countries {IT, DE, FR} contrasted with each in turn
+as the pivot share **0 of 5** top features between the FR and IT pivots, and the map
+gives the analyst no way to see which country is the pivot. Small selections make it
+worse: {IT, MT, CY} splits into 81-vs-7, 1-vs-87 and 8-vs-80, all below the minimum
+group size, so every pivot refuses to answer while vs-rest still yields 60 usable
+features. Three or more countries therefore stay on **group vs rest of world**, which is
+also the only comparison that has an obvious meaning for a bloc (EU, NATO, Five Eyes).
 
 **None of these three computations may run before a selection exists.** No default
 "global" state on load — the map/scatter start unselected, and the contrast panel

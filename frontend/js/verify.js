@@ -111,6 +111,30 @@ async function verifyTriggers() {
   check("clearing restores the volume toggle", state.toggleFirst === "Incident volume");
   check("clearing restores the empty header", state.header === "no selection");
 
+  // Clicking empty sea clears the countries in one gesture. Worth pinning down because
+  // it shares the mousedown with the pan: the guard that tells a drag from a click is
+  // the kind of thing a later change breaks silently, and the symptom - a selection
+  // vanishing when the analyst tried to pan - would be blamed on anything but this.
+  const countries = [...document.querySelectorAll("path.country")];
+  const byName = (n) => countries.find(
+    (p) => (p.querySelector("title") || {}).textContent?.startsWith(n));
+  byName("Italy").dispatchEvent(new MouseEvent("click", { bubbles: true, view: window }));
+  await wait(1200);
+  byName("Germany").dispatchEvent(
+    new MouseEvent("click", { bubbles: true, view: window, ctrlKey: true }));
+  await wait(1200);
+  check("ctrl-click builds a multi-country selection",
+    SelectionStore.getState().countries.length === 2,
+    SelectionStore.getState().countries.join(","));
+
+  document.querySelector("#view-a-canvas path.sphere")
+    .dispatchEvent(new MouseEvent("click", { bubbles: true, view: window }));
+  await wait(1200);
+  state = analyticOutput();
+  check("clicking the sea clears every selected country in one gesture",
+    SelectionStore.getState().countries.length === 0);
+  check("clearing by sea click also removes the contrast", state.contrastBars === 0);
+
   const passed = results.filter(Boolean).length;
   console.log(`%c${passed}/${results.length} runtime checks passed`,
     `font-weight:bold;color:${passed === results.length ? "green" : "red"}`);

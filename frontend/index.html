@@ -6,7 +6,7 @@
   <title>Threat-Shape</title>
   <!-- ?v= is bumped when an asset changes, so a browser holding an old copy is
        forced to refetch instead of silently running stale code. -->
-  <link rel="stylesheet" href="css/style.css?v=30">
+  <link rel="stylesheet" href="css/style.css?v=33">
 </head>
 <body>
 
@@ -31,7 +31,7 @@
         <!-- Two-state display switch, never a dropdown (CLAUDE.md sec.2). -->
         <span class="toggle" id="view-a-toggle"></span>
       </h2>
-      <p class="view-sub">click a country · ctrl-click to compare several · drag to pan</p>
+      <p class="view-sub">click a country · ctrl-click to compare several · click the sea to clear</p>
       <div class="view-canvas" id="view-a-canvas">
         <span class="placeholder">phase 6</span>
         <!-- Zoom control and details panel live INSIDE the map rectangle, over the
@@ -82,14 +82,14 @@
   </div><!-- /.app-shell -->
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
-  <script src="js/selectionStore.js?v=30"></script>
-  <script src="js/viewA_map.js?v=30"></script>
-  <script src="js/viewB_scatter.js?v=30"></script>
-  <script src="js/viewC_timeline.js?v=30"></script>
-  <script src="js/viewD_contrast.js?v=30"></script>
-  <script src="js/main.js?v=30"></script>
+  <script src="js/selectionStore.js?v=33"></script>
+  <script src="js/viewA_map.js?v=33"></script>
+  <script src="js/viewB_scatter.js?v=33"></script>
+  <script src="js/viewC_timeline.js?v=33"></script>
+  <script src="js/viewD_contrast.js?v=33"></script>
+  <script src="js/main.js?v=33"></script>
   <!-- Verification tool, not application code. Kept separate so the trigger
        audit can prove that only three things write to the selection store. -->
-  <script src="js/verify.js?v=30"></script>
+  <script src="js/verify.js?v=33"></script>
 </body>
 </html>

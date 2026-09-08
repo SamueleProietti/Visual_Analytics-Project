@@ -96,6 +96,8 @@ const ViewA = (() => {
     mapLayer: null,        // the <g> the zoom transform is applied to
     zoom: null,
     scale: 1,              // current zoom factor, mirrored so the buttons can disable
+    panStart: null,        // transform at the start of a drag, to tell a pan from a click
+    panned: false,
   };
 
   /** Load the topojson-client helper, which D3 does not bundle. */
@@ -251,8 +253,48 @@ const ViewA = (() => {
         state.mapLayer.attr("transform", event.transform);
         state.scale = event.transform.k;
         updateZoomButtons();
+      })
+      // A drag that pans the map ends with a click event, and that click must not be
+      // read as "the analyst clicked the sea".
+      //
+      // The test is whether the POINTER moved, not whether the transform changed. Those
+      // differ exactly where it matters: at scale 1, and at the edge of the pan bounds,
+      // the transform is pinned, so a real drag leaves it untouched - and the analyst
+      // who dragged expecting to pan would have lost their selection instead. 4px is
+      // above the jitter of a firm click and well below an intentional drag.
+      //
+      // sourceEvent is null for the button-driven transforms, so those never arm the
+      // flag and cannot swallow a later real click.
+      .on("start", (event) => {
+        const source = event.sourceEvent;
+        state.panStart = source ? [source.clientX, source.clientY] : null;
+      })
+      .on("end", (event) => {
+        const source = event.sourceEvent;
+        state.panned = !!(source && state.panStart
+          && Math.hypot(source.clientX - state.panStart[0],
+                        source.clientY - state.panStart[1]) > 4);
       });
     svg.call(state.zoom);
+
+    /* Clicking empty space clears the country selection.
+     *
+     * Without this, the only way out of a three-country selection was to click a fourth
+     * country (which replaces the set) and then click it again to drop it - two clicks
+     * that both assert something the analyst did not mean. Clicking nothing is the
+     * natural way to say "nothing", and View B already answers a click on empty space
+     * the same way, so the gesture means one thing across the tool.
+     *
+     * setCountries([]) rather than clear(): the map owns the country filter and nothing
+     * else. A time brush belongs to View C, and wiping it from here would undo a
+     * decision taken in another view.
+     */
+    svg.on("click", (event) => {
+      const target = event.target;
+      if (target.classList && target.classList.contains("country")) return;
+      if (state.panned) { state.panned = false; return; }
+      if (SelectionStore.getState().countries.length) SelectionStore.setCountries([]);
+    });
   }
 
   /** Write the popup, or hide it.
@@ -271,30 +313,53 @@ const ViewA = (() => {
   function showDetails(datum, residuals) {
     if (!datum) return setPopup(null);
 
-    // The country-level residual, then the sector breakdown that says where the
-    // deviation comes from. Cells below the expected-frequency threshold are marked,
-    // never dropped: sec.6.1 asks for a badge, not for suppression.
-    // Three distinct states, and saying which one applies matters: "not computed yet"
-    // and "cannot be computed without begging the question" are different answers.
-    let residualLine = SelectionStore.isEmpty()
-      ? '<span class="pending">residual: select something first</span>'
-      : '<span class="pending">geographic residual needs a time or lasso context '
-        + '(selecting a country alone would compare it with itself)</span>';
+    // The country-level residual, when there is a non-circular context to compute it in.
+    //
+    // When there is not - a country picked on its own - the line is simply absent. It
+    // used to carry an explanation of why the number was missing, which spent three
+    // lines of a popup that floats over the map to describe something the analyst had
+    // not asked for. The sector breakdown below IS the analysis in that state, and it
+    // names its own comparison, so nothing is silently missing.
+    let residualLine = "";
     if (datum.residual) {
       const r = datum.residual;
       const badge = r.reliable ? "" : ' <em class="badge">small sample</em>';
-      residualLine = `<span>residual <strong>z = ${r.z > 0 ? "+" : ""}${r.z.toFixed(2)}</strong>`
-        + ` (${r.observed} seen vs ${r.expected.toFixed(1)} expected)${badge}</span>`;
+      residualLine = '<span>share of this selection: '
+        + `<strong>z ${r.z > 0 ? "+" : ""}${r.z.toFixed(2)}</strong>`
+        + ` · ${r.observed} seen vs ${Math.round(r.expected)} expected${badge}</span>`;
     }
 
-    let sectorLine = "";
+    // Sector breakdown, split by DIRECTION rather than listed by |z|.
+    //
+    // The old line read "by sector: Critical infrastructure +4.1 · Education +3.8" - the
+    // two largest deviations by absolute value, with the sign left to be decoded and no
+    // statement of what they deviate FROM. Two things went wrong with it. The reader had
+    // to know that + means "more than expected", and because the list was ranked on |z|
+    // alone it could show two positives and hide an equally strong negative: the United
+    // States' Media sector sits at -3.35, just behind Education's +3.76, and never
+    // appeared. Splitting the list guarantees both directions are represented when both
+    // exist, and the heading says what the comparison is.
+    let sectorLines = "";
     if (residuals && residuals.sectors && residuals.sectors.length) {
-      const top = residuals.sectors.slice(0, 2).map((s) => {
+      const format = (s) => {
         const badge = s.reliable ? "" : ' <em class="badge">small n</em>';
-        return `${s.sector.split("(")[0].trim().slice(0, 26)} `
-          + `${s.z > 0 ? "+" : ""}${s.z.toFixed(1)}${badge}`;
-      }).join(" · ");
-      sectorLine = `<span class="sectors">by sector: ${top}</span>`;
+        return `${s.sector.split("(")[0].trim().slice(0, 30)} `
+          + `<strong>z ${s.z > 0 ? "+" : ""}${s.z.toFixed(1)}</strong>${badge}`;
+      };
+      const over = residuals.sectors.filter((s) => s.z > 0).slice(0, 2);
+      const under = residuals.sectors.filter((s) => s.z < 0).slice(0, 2);
+      if (over.length || under.length) {
+        sectorLines = '<span class="sectors-head">which sectors are hit, '
+          + "against the global sector mix</span>";
+        if (over.length) {
+          sectorLines += `<span class="sectors">more than expected: `
+            + `${over.map(format).join(" · ")}</span>`;
+        }
+        if (under.length) {
+          sectorLines += `<span class="sectors">less than expected: `
+            + `${under.map(format).join(" · ")}</span>`;
+        }
+      }
     }
 
     // Kept short deliberately - CLAUDE.md sec.5 asks for a summary, not a profile dump.
@@ -305,7 +370,7 @@ const ViewA = (() => {
       <span>${datum.incidents} incidents · top sector: `
       + `${datum.top_sector.split("(")[0].trim()} (${datum.top_sector_count})</span>
       ${residualLine}
-      ${sectorLine}
+      ${sectorLines}
     `);
   }
 

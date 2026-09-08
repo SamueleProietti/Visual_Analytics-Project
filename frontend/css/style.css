@@ -435,6 +435,16 @@ path.country.is-unreliable {
 
 .details .sectors, .map-popup .sectors { color: var(--ink-soft); }
 
+/* Names the comparison the two sector lines are against. Without it "more than
+   expected" leaves the reader to guess "expected by whom" - and the answer, the global
+   sector mix, is the whole basis of the number. */
+.map-popup .sectors-head {
+  margin-top: 3px;
+  color: var(--ink);
+  font-size: 10px;
+  text-transform: lowercase;
+}
+
 /* ---------- Phase 13: local re-projection ---------- */
 
 /* The banner must be impossible to miss: a local layout and the global one look alike,

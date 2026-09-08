@@ -466,4 +466,42 @@ stato reale senza dover rileggere tutta la chat.
       sullo store né chiama un endpoint di analitica. In runtime, 14 pressioni dei
       bottoni zoom lasciano selezione e barre di View D invariate.
 
+- [x] View A — deselezione, popup leggibile, §6.3 corretta — 2026-09-08
+      **AS index invariato: 61.452.** `verifyTriggers()` da 17 a **20/20**.
+      **Corretta la formulazione di CLAUDE.md §6.3.** Diceva «when **2+** countries are
+      selected, switch to a direct A-vs-B contrast», ma sopra i due paesi «B» non esiste
+      finché non se ne nomina uno, e l'unica cosa disponibile per nominarlo è l'ordine
+      dei click. Misurato sul corpus: {IT, DE, FR} contrastati usando a turno ciascuno
+      come pivot condividono **0 feature su 5** fra il pivot FR e il pivot IT, e la mappa
+      non mostra quale paese sia il pivot. Con selezioni piccole peggiora: {IT, MT, CY}
+      si divide in 81-vs-7, 1-vs-87 e 8-vs-80, tutti sotto la soglia minima, quindi
+      *ogni* pivot rifiuta di rispondere mentre vs-rest dà comunque 60 feature usabili.
+      Da tre paesi in su resta **gruppo vs resto del mondo**. Il comportamento non è
+      cambiato: era la frase a essere imprecisa.
+      **Click sul mare = deselezione.** Prima, per uscire da una selezione di tre paesi
+      bisognava cliccarne un quarto (che sostituisce l'insieme) e poi ricliccarlo — due
+      click che affermano entrambi qualcosa che l'analista non intendeva. `setCountries([])`
+      e non `clear()`: la mappa possiede il filtro paesi e nient'altro, e un brush
+      temporale appartiene a View C.
+      **La guardia guarda il puntatore, non la trasformazione.** Un trascinamento
+      termina con un evento click, che non va letto come «click sul mare». La prima
+      versione confrontava la trasformazione prima/dopo — ma a scala 1, e al bordo dei
+      limiti di pan, la trasformazione è bloccata: un pan reale non la cambia, e
+      l'analista che trascina aspettandosi di spostare la mappa perderebbe la selezione.
+      Ora è una soglia di 4px sullo spostamento del puntatore. Verificato: trascinamento
+      a 1x → selezione intatta; a 2,56x → intatta; click semplice → azzerata.
+      **Popup riscritto.** Tolta la frase «geographic residual needs a time or lasso
+      context (…)»: spendeva tre righe di un riquadro che galleggia sulla mappa per
+      descrivere una cosa che non c'era. Quando non c'è contesto, la riga semplicemente
+      non compare — l'analisi in quello stato *è* la scomposizione per settore, che
+      dichiara da sé il proprio confronto.
+      **La riga dei settori era ordinata su |z| e nascondeva metà del risultato.**
+      «by sector: Critical infrastructure +4.1 · Education +3.8» chiedeva al lettore di
+      decodificare il segno e non diceva rispetto a *cosa*; peggio, prendendo i due |z|
+      più grandi poteva mostrare due positivi e nascondere un negativo altrettanto forte
+      — il settore Media degli Stati Uniti sta a **−3,35**, subito dietro Education a
+      +3,76, e non compariva mai. Ora la lista è divisa per direzione, con l'intestazione
+      che nomina il confronto: «which sectors are hit, against the global sector mix ·
+      more than expected: … · less than expected: …».
+
 - [ ] Fase 17 — completata il: ___
