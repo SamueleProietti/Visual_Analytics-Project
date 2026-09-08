@@ -47,9 +47,15 @@ const ViewA = (() => {
     volume: {
       label: "Incident volume",
       legendTitle: "incidents recorded",
-      // Single-hue sequential: the variable has no meaningful zero point or sign, so a
-      // divergent scale would invent one (CLAUDE.md sec.2).
-      colours: ["#deebf7", "#c6dbef", "#9ecae1", "#6baed6", "#3182bd", "#08519c"],
+      // Sequential: the variable has no meaningful zero point or sign, so a divergent
+      // scale would invent one (CLAUDE.md sec.2).
+      //
+      // ColorBrewer BuPu, not Blues. Blues put this layer's dark end on the same hue as
+      // the residual layer's "below expected" - and these three layers paint THE SAME
+      // PIXELS, swapped by the toggle, so two of them looking alike means the analyst
+      // cannot tell which question the map is answering. A legend does not fix that,
+      // because the colour is read before the legend.
+      colours: ["#edf8fb", "#bfd3e6", "#9ebcda", "#8c96c6", "#8856a7", "#810f7c"],
       breaks: VOLUME_BREAKS,
       value: (d) => d.incidents,
       format: (v) => String(v),
@@ -58,7 +64,11 @@ const ViewA = (() => {
     attribution: {
       label: "Attribution",
       legendTitle: "share with no named initiator state",
-      colours: ["#fee5d9", "#fcbba1", "#fc9272", "#fb6a4a", "#de2d26"],
+      // ColorBrewer YlOrBr, not Reds. Reds was the worst collision in the tool: measured
+      // under tritanopia its dark end (#a50f15) sat at deltaE 5.0 from the residual
+      // layer's "above expected" (#b2182b) - the same dark red carrying two different
+      // meanings on the same pixels. See docs/roadmap.md, palette study.
+      colours: ["#ffffd4", "#fed98e", "#fe9929", "#d95f0e", "#993404"],
       breaks: RATE_BREAKS,
       value: (d) => d.not_attributed_rate,
       format: (v) => (v * 100).toFixed(0) + "%",

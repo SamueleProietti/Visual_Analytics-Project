@@ -371,4 +371,56 @@ stato reale senza dover rileggere tutta la chat.
       cosa il pannello risponderà, senza asserire alcun risultato.
       Verificato che **tutte e 4 le legende sono popolate in tutti e 4 gli stati**
       (vuoto, selezione, residuo, dopo-clear) e che nessuna vista scrolla in nessuno.
+- [x] Rifinitura frontend — 2026-09-06/08 — **AS index invariato: 61.452**
+      *Fuori dalla numerazione delle fasi: richiesta esplicita di sistemare il frontend
+      prima delle ultime due fasi.*
+      **Layout.** La griglia riempie il viewport invece di due colonne fisse da 590px con
+      un margine morto a destra. `repeat(2, minmax(0, 1fr))` e **non** `auto-fit`:
+      auto-fit deduce il numero di colonne dalla larghezza e a 1600px ne montava tre,
+      rompendo l'accoppiamento A B / D C del mockup. Sotto i 990px collassa a una colonna.
+      Tolti il chip di stato verde (ora banner di solo guasto: un badge permanente
+      "tutto ok" è chrome che l'occhio impara a saltare) e il footer.
+      **Difetto in View B, reso evidente dall'allargamento:** gli assi x e y erano scalati
+      in modo indipendente. Gli assi t-SNE non hanno unità, ma l'embedding *è isotropo*:
+      il rapporto fra due distanze è l'unica cosa che asserisce, e scalare i due assi in
+      modo diverso disegna un cluster rotondo come un'ellisse. Ora un solo fattore di
+      scala, plot centrato; il layout globale e la ri-proiezione locale condividono il fit.
+
+- [x] Sistema cromatico — 2026-09-08 — **AS index invariato: 61.452**
+      `scripts/06_verify_visual.py` da 34 a **39/39**.
+      **Dottrina del corso, dalle slide:** VA_03_1 #25 «the rainbow scale does not
+      work!!!», #26 «6 colori elementari in 3 coppie → 11 distinguibili», #27
+      «colorbrewer2.org · do not use colors in a random way», #35 «**maintain consistence
+      across different graphs**»; VA_07_C #6 «11 colours for labeling, **max 4 for
+      color-blind people**».
+      **Dai flag ufficiali di ColorBrewer** (`colorbrewer_schemes.js`): *nessuno* schema
+      qualitativo è dichiarato sicuro a 7 categorie (Set2 e Dark2 sono `0` da n=7).
+      Coincide con il «max 4» del corso. Okabe-Ito a 7 misura ΔE 11,6 contro 5,0 di Dark2
+      e 8,6 di Set2: **View C resta su Okabe-Ito perché è misurabilmente migliore**, non
+      per preferenza — l'unica deviazione da ColorBrewer, e giustificata da un numero.
+      **Il vincolo che sembrava centrale è impossibile.** Volevo che l'asse segnato
+      (rosso/blu) non fosse indossato da nient'altro: su tutte le combinazioni divergente
+      × categorica il massimo raggiungibile è **ΔE 8,3**, sotto la soglia di 10. Una
+      palette categorica che copre il cerchio cromatico contiene per forza qualcosa di
+      vicino a qualunque estremo divergente. Quindi la coerenza **non** può venire da
+      «nessun colore si somiglia»: viene dal **tipo di scala come grammatica** —
+      divergente = «rispetto all'atteso», sequenziale = «quanto», categorica = «quale».
+      **Difetto reale trovato:** i tre layer di View A dipingono *gli stessi pixel*
+      scambiati dal toggle, e due di loro erano quasi identici — residuo `#b2182b` vs
+      attribuzione `#a50f15` a **ΔE 5,0** in tritanopia. Ogni scala passava la propria
+      regola: il difetto era invisibile ai controlli per-scala. Adottato il **Sistema A**:
+      volume Blues→**BuPu**, attribuzione Reds→**YlOrBr**, intensità Purples→**Greens**;
+      RdBu resta sul segnato, quindi rosso = «sopra l'atteso» in View A e in View D.
+      Risultato: residuo/attribuzione **10,2**, residuo/volume **11,2**,
+      volume/attribuzione **14,1**. Il tetto misurato per RdBu è 10,4, quindi il sistema è
+      di fatto al massimo che la convenzione consente.
+      **Effetto collaterale voluto:** il viola non è più anche la rampa di intensità, così
+      resta a significare *solo* «scelto dall'analista» (lazo, banner locale, contorno di
+      selezione indiretta). Un punto non può più essere scuro perché intenso *o* perché
+      selezionato.
+      **Nuovo gruppo di verifiche (sezione 3):** «one meaning per colour where the
+      meanings share pixels» — confronta i colori-segnale dei tre layer di View A e
+      controlla che View D usi gli estremi del residuo di View A. Rimettendo Reds il
+      controllo fallisce con ΔE 5,0 ed esce 1: è il difetto che prima nessun test vedeva.
+
 - [ ] Fase 17 — completata il: ___

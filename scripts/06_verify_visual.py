@@ -160,10 +160,23 @@ def extract_palettes():
         start = text.find(marker)
         return hexes(text[start:text.find("]", start)])
 
+    def layer(text, name):
+        """One of View A's LAYERS, keyed by its name rather than its first colour.
+
+        Keyed by name because the earlier version matched on the literal first hex, so
+        changing a palette silently broke the extraction and the script went on checking
+        a palette the app no longer used. Scanning starts AT the opening bracket, not at
+        the layer name, so hexes quoted in the comments above it are not mistaken for
+        members of the ramp.
+        """
+        start = text.index(f"{name}: {{")
+        opening = text.index("colours: [", start) + len("colours: [")
+        return hexes(text[opening:text.index("]", opening)])
+
     return {
-        "View A - residual (divergent)": (block(view_a, "colours: [\"#2166ac"), "divergent"),
-        "View A - volume (sequential)": (block(view_a, "colours: [\"#deebf7"), "sequential"),
-        "View A - attribution (sequential)": (block(view_a, "colours: [\"#fee5d9"), "sequential"),
+        "View A - residual (divergent)": (layer(view_a, "residual"), "divergent"),
+        "View A - volume (sequential)": (layer(view_a, "volume"), "sequential"),
+        "View A - attribution (sequential)": (layer(view_a, "attribution"), "sequential"),
         "View B - intensity (sequential)": (block(view_b, "const COLOURS = ["), "sequential"),
         "View C - incident type (categorical)": (
             hexes(view_c[view_c.find("const PALETTE"):view_c.find("};", view_c.find("const PALETTE"))]),
@@ -220,13 +233,82 @@ def check_divergent_usage():
         check(f"{name} declares no divergent scale",
               "RdBu" not in text and "#2166ac" not in text and "#b2182b" not in text)
 
-    view_a = (JS / "viewA_map.js").read_text(encoding="utf-8")
-    check("View A's count layers are single-hue sequential, not divergent",
-          "#deebf7" in view_a and "#fee5d9" in view_a)
+    palettes = extract_palettes()
+    for name in ("View A - volume (sequential)", "View A - attribution (sequential)"):
+        colours, _ = palettes[name]
+        # A sequential ramp has one light end; a divergent one is light in the MIDDLE.
+        # Checking the shape rather than a literal hex means the check survives a palette
+        # change and still catches the mistake it exists to catch.
+        lightest = max(range(len(colours)), key=lambda i: simulate(colours[i], "normal")[0])
+        check(f"{name.split(' - ')[1]} is sequential in shape, not divergent",
+              lightest in (0, len(colours) - 1),
+              f"lightest of {len(colours)} colours is at index {lightest}")
+
+
+def signal_colours(colours, kind):
+    """The members of a scale that actually assert something.
+
+    A sequential ramp's pale end means "almost none" and makes no claim, so comparing
+    pale ends across two ramps would only ever measure "both are nearly white" and would
+    fail every honest palette. The dark end is the claim. A divergent scale claims at
+    both ends and not in the middle.
+    """
+    if kind == "sequential":
+        return colours[-2:]
+    if kind == "divergent":
+        return [colours[0], colours[1], colours[-2], colours[-1]]
+    return colours
+
+
+def check_layer_separation():
+    rule("3. ONE MEANING PER COLOUR WHERE THE MEANINGS SHARE PIXELS")
+    palettes = extract_palettes()
+
+    # View A's three layers are the strictest case in the tool and the one the per-scale
+    # checks cannot see: each palette passed its own rule while volume and residual were
+    # both blue, and attribution and residual were both dark red. They paint the SAME
+    # COUNTRIES, swapped by the toggle - so if two of them look alike, the analyst cannot
+    # tell which question the map is currently answering, and no legend repairs that
+    # because the colour is read first.
+    #
+    # The bar is MIN_DELTA_E rather than something higher because a higher one is not
+    # reachable: searching every ColorBrewer combination put the ceiling at about 12.
+    # Four quantitative scales on one screen genuinely over-subscribe the hue space.
+    layers = [(name, palettes[f"View A - {name} ({kind})"])
+              for name, kind in [("residual", "divergent"), ("volume", "sequential"),
+                                 ("attribution", "sequential")]]
+
+    for i in range(len(layers)):
+        for j in range(i + 1, len(layers)):
+            (name_a, (colours_a, kind_a)) = layers[i]
+            (name_b, (colours_b, kind_b)) = layers[j]
+            left = signal_colours(colours_a, kind_a)
+            right = signal_colours(colours_b, kind_b)
+
+            worst, detail = float("inf"), ""
+            for deficiency in ("protanopia", "deuteranopia", "tritanopia"):
+                for one in left:
+                    for other in right:
+                        distance = float(np.linalg.norm(
+                            simulate(one, deficiency) - simulate(other, deficiency)))
+                        if distance < worst:
+                            worst, detail = distance, f"{one} vs {other} under {deficiency}"
+            check(f"View A: {name_a} and {name_b} stay distinct",
+                  worst >= MIN_DELTA_E, f"worst deltaE {worst:.1f} - {detail}")
+
+    # The signed axis is the one meaning that appears in two views at once. If View D
+    # drifted from View A's residual ends, red would mean "above expected" in one place
+    # and something slightly different in the other - the exact inconsistency the course
+    # material warns about ("maintain consistence across different graphs").
+    residual, _ = palettes["View A - residual (divergent)"]
+    contrast, _ = palettes["View D - contrast (divergent)"]
+    check("View D's bars use View A's residual endpoints",
+          set(contrast) == {residual[0], residual[-1]},
+          f"View D {contrast} vs residual ends {[residual[0], residual[-1]]}")
 
 
 def check_legends():
-    rule("3. EVERY VIEW CARRIES A LEGEND")
+    rule("4. EVERY VIEW CARRIES A LEGEND")
     html = HTML.read_text(encoding="utf-8")
     for view in ("a", "b", "c", "d"):
         check(f"view-{view} has a legend container", f'id="view-{view}-legend"' in html)
@@ -238,7 +320,7 @@ def check_legends():
 
 
 def check_fixed_size():
-    rule("4. VIEWS ARE FIXED-SIZE AND DO NOT SCROLL")
+    rule("5. VIEWS ARE FIXED-SIZE AND DO NOT SCROLL")
     css = (ROOT / "frontend" / "css" / "style.css").read_text(encoding="utf-8")
     check("view canvases have a fixed height", "height: var(--view-h)" in css)
     check("view canvases clip rather than scroll", "overflow: hidden" in css)
@@ -249,6 +331,7 @@ def check_fixed_size():
 def main():
     check_colours()
     check_divergent_usage()
+    check_layer_separation()
     check_legends()
     check_fixed_size()
 
@@ -256,8 +339,8 @@ def main():
     if not all(results):
         raise SystemExit("visual encoding rules are violated")
     print("  Palettes survive the three common colour-vision deficiencies, divergent")
-    print("  scales appear only on signed quantities, every view has a legend, and no")
-    print("  view scrolls.")
+    print("  scales appear only on signed quantities, no two meanings that share pixels")
+    print("  wear the same colour, every view has a legend, and no view scrolls.")
 
 
 if __name__ == "__main__":

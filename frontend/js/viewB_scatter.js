@@ -12,10 +12,16 @@
 "use strict";
 
 const ViewB = (() => {
-  // Sequential single-hue, and a different hue from View A's blues so the two views are
-  // not read as sharing a scale. Divergent would be wrong: intensity has no meaningful
+  // Sequential single-hue. Divergent would be wrong: intensity has no meaningful
   // midpoint or sign (CLAUDE.md sec.2).
-  const COLOURS = ["#efedf5", "#dadaeb", "#bcbddc", "#9e9ac8", "#807dba", "#6a51a3", "#4a1486"];
+  //
+  // ColorBrewer Greens, not Purples. Purple was doing two jobs at once - it was this
+  // ramp AND the colour of a selection (the lasso outline, the local-projection banner,
+  // the indirect-selection outline on the map). A point could be dark because it was
+  // intense or because it was picked, which is the one distinction this view exists to
+  // support. Moving intensity to green leaves purple to mean "chosen by the analyst"
+  // and nothing else.
+  const COLOURS = ["#edf8e9", "#c7e9c0", "#a1d99b", "#74c476", "#41ab5d", "#238b45", "#005a32"];
 
   const R_MIN = 2.0;
   const R_MAX = 8.0;
