@@ -66,6 +66,26 @@ async function verifyTriggers() {
     analyticOutput().contrastBars === before);
   document.querySelector(".toggle-button").click();
 
+  // The map's zoom buttons are the other display-only control, and they are the newest
+  // buttons in the interface - which makes them the likeliest place for the "no menu
+  // may start an analysis" rule to be broken by accident. Pressed to both limits and
+  // back, they must move the camera and change nothing else.
+  const zoomButtons = [...document.querySelectorAll("#view-a-zoom button")];
+  check("the map has exactly two zoom buttons", zoomButtons.length === 2,
+    `${zoomButtons.length} found`);
+  const selectionBefore = JSON.stringify(SelectionStore.getState());
+  const scaleOf = () => d3.zoomTransform(document.querySelector("#view-a-canvas svg")).k;
+  for (let i = 0; i < 7; i += 1) zoomButtons[0].click();
+  const zoomedIn = scaleOf();
+  for (let i = 0; i < 7; i += 1) zoomButtons[1].click();
+  await wait(400);
+  check("zoom in changes the scale and stops at the limit", zoomedIn === 8,
+    `reached ${zoomedIn}`);
+  check("zoom out returns to the fitted world", scaleOf() === 1, `at ${scaleOf()}`);
+  check("zooming starts no analytic and changes no selection",
+    JSON.stringify(SelectionStore.getState()) === selectionBefore
+    && analyticOutput().contrastBars === before);
+
   // Trigger 1 - map click.
   const country = [...document.querySelectorAll("path.country")]
     .find((p) => (p.querySelector("title") || {}).textContent?.startsWith("United States"));

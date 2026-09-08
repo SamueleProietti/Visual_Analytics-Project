@@ -78,11 +78,36 @@ def check_no_input_controls():
     check("no <select>, <option>, radio or checkbox in the frontend",
           not offenders, str(offenders) if offenders else "")
 
-    # The layer toggle is two buttons. Two is a display switch; three would be a menu.
+    # Buttons are allowed, but only as DISPLAY controls - the rule bans a control that
+    # STARTS an analysis, not one that changes what you are looking at. So the check is
+    # not "are there buttons" but "which files make them, and do those files hand a
+    # button an analytic to run".
+    #
+    # This used to assert "the only <button> elements are created by the two-state
+    # toggle" while actually testing only that index.html holds no static button - a
+    # label that quietly became false the moment View A grew a zoom control, without the
+    # check noticing. A check whose label overstates what it measures is worse than none.
     html = sources[HTML.name]
-    check("the only <button> elements are created by the two-state toggle",
-          "<button" not in html, "static buttons found in index.html"
-          if "<button" in html else "")
+    check("no button is hard-coded in index.html (they are built by their own view)",
+          "<button" not in html,
+          "static buttons found in index.html" if "<button" in html else "")
+
+    button_makers = {name for name, text in sources.items()
+                     if name != HTML.name and re.search(r'join\("button"\)|append\("button"\)',
+                                                        text)}
+    # viewA_map.js owns both display controls: the two-state layer toggle and the two
+    # zoom buttons. Any other file growing a button is the thing worth being told about.
+    check("only View A creates buttons, and only display controls",
+          button_makers == {"viewA_map.js"}, f"files creating buttons: {sorted(button_makers)}")
+
+    view_a = sources["viewA_map.js"]
+    # Every button handler in View A must be a display action. Listing them explicitly is
+    # what keeps "it is only a display switch" from being a claim rather than a fact.
+    handlers = re.findall(r'\.on\("click",\s*\(event,\s*\w+\)\s*=>\s*([^\n]+)', view_a)
+    analytic_call = re.compile(r"SelectionStore\.set|loadResiduals|loadSectors|/api/")
+    check("View A's button handlers start no analytic and write no selection",
+          not any(analytic_call.search(h) for h in handlers),
+          f"{len(handlers)} handlers inspected")
 
 
 def check_store_writers():

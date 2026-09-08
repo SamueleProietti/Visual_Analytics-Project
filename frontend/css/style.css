@@ -201,34 +201,86 @@ body {
   fill: #f6f8fa;                            /* ocean: neutral, never a data colour */
   stroke: var(--rule);
   stroke-width: 0.5;
+  vector-effect: non-scaling-stroke;
 }
 
 path.country {
   cursor: pointer;
   transition: fill 120ms linear;
+  /* Borders keep their screen width as the map scales. Without this a 0.3px border at
+     8x zoom draws at 2.4px and the world turns into outlines. */
+  vector-effect: non-scaling-stroke;
 }
 
 path.country:hover { fill-opacity: 0.75; }
 
-/* Details on demand. Fixed height so revealing it cannot resize the view - the grid
-   must stay stable when a country is clicked (CLAUDE.md sec.2: fixed-size views). */
-.details {
-  height: 74px;
-  margin-top: 8px;
+/* The map canvas is the positioning context for the zoom control and the details
+   popup, both of which float over the geometry rather than sitting beside it. */
+#view-a-canvas { position: relative; }
+
+/* ---------- View A: zoom control ---------- */
+
+.map-zoom {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  z-index: 2;
+}
+
+.map-zoom button {
+  width: 24px;
+  height: 24px;
+  font: 600 15px/1 "Segoe UI", system-ui, sans-serif;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.map-zoom button:hover:not(:disabled) { background: #fff; border-color: var(--ink-soft); }
+
+/* Disabled at the limits rather than hidden: a control that stops responding with no
+   explanation reads as a bug, one that greys out reads as "you are at the end". */
+.map-zoom button:disabled { opacity: 0.4; cursor: default; }
+
+/* Details on demand, as a popup over the map's bottom-left corner. Absolutely
+   positioned, so revealing it cannot change the view's height - the grid must stay
+   stable when a country is clicked (CLAUDE.md sec.2: fixed-size views). */
+.map-popup {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 2;
+  max-width: 62%;
+  max-height: 46%;
   padding: 6px 9px;
   border: 1px solid var(--rule);
   border-radius: 3px;
-  background: var(--surface-sunken);
+  /* Nearly opaque, not translucent: coastlines showing through the text would cost
+     legibility to save nothing - the popup sits over open ocean either way. */
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
   font-size: 11px;
-  line-height: 1.5;
+  line-height: 1.45;
   display: flex;
   flex-direction: column;
+  gap: 1px;
   overflow: hidden;
 }
 
-.details strong { font-size: 12px; }
-.details .hint { color: var(--ink-soft); font-style: italic; }
-.details .pending { color: var(--pending); }
+/* display:flex above outranks the user-agent's [hidden]{display:none}, which is an
+   attribute selector and loses to a class. Without this the popup shows as an empty
+   white box over the map whenever it has nothing to say. */
+.map-popup[hidden] { display: none; }
+
+.details strong, .map-popup strong { font-size: 12px; }
+.details .hint, .map-popup .hint { color: var(--ink-soft); font-style: italic; }
+.details .pending, .map-popup .pending { color: var(--pending); }
 
 .legend-title { color: var(--ink); }
 
@@ -244,6 +296,23 @@ path.country:hover { fill-opacity: 0.75; }
   border: 1px solid var(--rule);
   border-radius: 2px;
   display: inline-block;
+}
+
+/* Title on its own line, values on the next. Inline, the title ate enough of the row
+   that the attribution layer's last class wrapped alone onto a second line - which
+   reads as a separate group rather than the tail of one scale. Only View A opts in:
+   View B deliberately carries two titles side by side. */
+.view-legend.is-stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.view-legend.is-stacked .legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
 }
 
 /* ---------- View B: t-SNE scatter ---------- */
@@ -354,7 +423,7 @@ path.country.is-unreliable {
   background: repeating-linear-gradient(45deg, #ffffff 0 3px, #9a9a9a 3px 4px);
 }
 
-.details .badge {
+.details .badge, .map-popup .badge {
   font-style: normal;
   font-size: 10px;
   padding: 0 4px;
@@ -364,7 +433,7 @@ path.country.is-unreliable {
   border: 1px solid #e8cfa0;
 }
 
-.details .sectors { color: var(--ink-soft); }
+.details .sectors, .map-popup .sectors { color: var(--ink-soft); }
 
 /* ---------- Phase 13: local re-projection ---------- */
 

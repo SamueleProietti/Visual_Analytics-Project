@@ -32,6 +32,14 @@ const ViewA = (() => {
   const NO_DATA = "#eeeeee";
   const OUTLINE = "#b0b0b0";
 
+  // Zoom limits. The lower bound is 1 - "the whole world, fitted" - because below it the
+  // map would shrink inside its own frame for no analytical gain; there is nothing
+  // outside the sphere to reveal. The upper bound is 8, which resolves the small island
+  // states EuRepoC records (Malta, Bahrain, Singapore) without letting a country fill
+  // the frame: a choropleth compares places, and one country alone compares nothing.
+  const ZOOM_LIMITS = [1, 8];
+  const ZOOM_STEP = 1.6;      // ~4 clicks from end to end, few enough to stay orienting
+
   const LAYERS = {
     residual: {
       label: "Residual",
@@ -85,6 +93,9 @@ const ViewA = (() => {
     residuals: null,
     svg: null,
     path: null,
+    mapLayer: null,        // the <g> the zoom transform is applied to
+    zoom: null,
+    scale: 1,              // current zoom factor, mirrored so the buttons can disable
   };
 
   /** Load the topojson-client helper, which D3 does not bundle. */
@@ -144,21 +155,27 @@ const ViewA = (() => {
     const legend = d3.select("#view-a-legend");
     legend.selectAll("*").remove();
 
-    legend.append("span").attr("class", "legend-title").text(layer.legendTitle + ":");
+    legend.append("span").attr("class", "legend-title").text(layer.legendTitle);
 
-    const items = legend.selectAll("span.legend-item")
+    // The classes go in their own row under the title. Inline, the title took enough of
+    // the width that the attribution layer's last class dropped onto a second line by
+    // itself - and a class sitting alone below the others reads as a separate thing,
+    // not as the top of one ordered scale.
+    const row = legend.append("div").attr("class", "legend-row");
+
+    const items = row.selectAll("span.legend-item")
       .data(layer.colours.map((colour, i) => ({ colour, label: layer.legendLabels[i] })))
       .join("span").attr("class", "legend-item");
     items.append("span").attr("class", "legend-swatch")
       .style("background", (d) => d.colour);
     items.append("span").text((d) => d.label);
 
-    const none = legend.append("span").attr("class", "legend-item");
+    const none = row.append("span").attr("class", "legend-item");
     none.append("span").attr("class", "legend-swatch").style("background", NO_DATA);
     none.append("span").text("no data");
 
     if (activeLayer() === "residual" && state.residuals) {
-      const flagged = legend.append("span").attr("class", "legend-item");
+      const flagged = row.append("span").attr("class", "legend-item");
       flagged.append("span").attr("class", "legend-swatch is-unreliable-swatch");
       flagged.append("span").text(`small sample (expected < ${state.residuals
         ? state.residuals.summary.min_expected : 5})`);
@@ -168,12 +185,91 @@ const ViewA = (() => {
     }
   }
 
-  function showDetails(datum, residuals) {
-    const panel = d3.select("#view-a-details");
-    if (!datum) {
-      panel.html('<span class="hint">click a country for details</span>');
+  /* ---------------------------------------------------------------- zoom control
+   *
+   * A DISPLAY control, not an analytic trigger. Zooming changes which part of the map
+   * you are looking at and nothing else: it does not touch the selection store, so no
+   * residual, re-projection or contrast can be started by pressing it. That is what
+   * keeps it compatible with CLAUDE.md sec.2 - the forbidden thing is a control that
+   * STARTS an analysis, not a control that moves the camera.
+   */
+  function updateZoomButtons() {
+    d3.select("#view-a-zoom").selectAll("button")
+      .property("disabled", (d) => (d === "in"
+        ? state.scale >= ZOOM_LIMITS[1] - 1e-6
+        : state.scale <= ZOOM_LIMITS[0] + 1e-6));
+  }
+
+  function zoomBy(direction) {
+    if (!state.svg || !state.zoom) return;
+    const factor = direction === "in" ? ZOOM_STEP : 1 / ZOOM_STEP;
+    const target = state.scale * factor;
+
+    // Applied immediately, NOT through a d3 transition. An animated zoom is driven by
+    // requestAnimationFrame, which browsers freeze in a hidden or backgrounded tab - so
+    // the button's effect would depend on something outside the button. A stepped
+    // control should land where it says it lands, every time it is pressed.
+    //
+    // Landing back at 1 resets the pan as well. Scaling alone would leave the world
+    // pinned against whichever edge it was dragged to, so "zoom all the way out" would
+    // not give back the view the analyst started from.
+    if (target <= ZOOM_LIMITS[0] + 1e-6) {
+      state.zoom.transform(state.svg, d3.zoomIdentity);
       return;
     }
+    state.zoom.scaleBy(state.svg, factor);
+  }
+
+  function buildZoom() {
+    const host = d3.select("#view-a-zoom");
+    host.selectAll("*").remove();
+    host.selectAll("button").data(["in", "out"]).join("button")
+      .attr("type", "button")
+      .attr("class", "zoom-button")
+      .attr("aria-label", (d) => (d === "in" ? "zoom in" : "zoom out"))
+      .attr("title", (d) => (d === "in" ? "zoom in" : "zoom out"))
+      .text((d) => (d === "in" ? "+" : "−"))
+      .on("click", (event, d) => zoomBy(d));
+    updateZoomButtons();
+  }
+
+  function attachZoom(svg, width, height) {
+    state.zoom = d3.zoom()
+      .scaleExtent(ZOOM_LIMITS)
+      // Panning is bounded by the canvas, so the world cannot be dragged off screen and
+      // leave the analyst looking at an empty rectangle with no way back.
+      .translateExtent([[0, 0], [width, height]])
+      .filter((event) => {
+        // Wheel is deliberately NOT a zoom gesture. The page itself scrolls, and a wheel
+        // that silently zooms the map instead of scrolling past it makes the page feel
+        // broken - the classic embedded-map complaint. Zoom is the two buttons; drag
+        // still pans once you are in. ctrl is left alone because ctrl-click is the
+        // multi-country selection gesture.
+        return event.type !== "wheel" && event.type !== "dblclick" && !event.ctrlKey;
+      })
+      .on("zoom", (event) => {
+        state.mapLayer.attr("transform", event.transform);
+        state.scale = event.transform.k;
+        updateZoomButtons();
+      });
+    svg.call(state.zoom);
+  }
+
+  /** Write the popup, or hide it.
+   *
+   * Hidden rather than showing "click a country for details": as a panel below the map
+   * that prompt filled a box that was there anyway, but as a popup it would sit over the
+   * geometry permanently, covering countries to say nothing. The invitation lives in the
+   * view's subtitle instead, where it costs no map.
+   */
+  function setPopup(html) {
+    const panel = d3.select("#view-a-details");
+    panel.property("hidden", !html);
+    panel.html(html || "");
+  }
+
+  function showDetails(datum, residuals) {
+    if (!datum) return setPopup(null);
 
     // The country-level residual, then the sector breakdown that says where the
     // deviation comes from. Cells below the expected-frequency threshold are marked,
@@ -202,7 +298,9 @@ const ViewA = (() => {
     }
 
     // Kept short deliberately - CLAUDE.md sec.5 asks for a summary, not a profile dump.
-    panel.html(`
+    // Shorter still now that it floats over the map: every extra line is a line of
+    // geometry the analyst cannot see.
+    setPopup(`
       <strong>${datum.country}</strong>
       <span>${datum.incidents} incidents · top sector: `
       + `${datum.top_sector.split("(")[0].trim()} (${datum.top_sector_count})</span>
@@ -282,15 +380,15 @@ const ViewA = (() => {
     if (list.length === 1) {
       showDetails(state.byCode.get(list[0]), state.residuals);
     } else if (list.length > 1) {
-      d3.select("#view-a-details").html(
-        `<strong>${list.length} countries selected</strong>`
-        + `<span>${list.join(", ")}</span>`
-        + `<span class="pending">contrast A-vs-B: phase 14</span>`);
+      // No "contrast A-vs-B" line any more: it named a phase rather than a result, and
+      // the contrast itself is in View D, which states its own comparison in full.
+      // Repeating it here would give the analyst two places to read one answer.
+      setPopup(`<strong>${list.length} countries selected</strong>`
+        + `<span>${list.join(", ")}</span>`);
     } else if (!snapshot.empty) {
-      d3.select("#view-a-details").html(
-        `<strong>${snapshot.selected.length} incidents selected</strong>`
-        + `<span>from ${snapshot.sources.join(" + ")} · touching ${touched.size} countries</span>`
-        + `<span class="pending">residual: phase 12</span>`);
+      setPopup(`<strong>${snapshot.selected.length} incidents selected</strong>`
+        + `<span>from ${snapshot.sources.join(" + ")} · `
+        + `touching ${touched.size} countries</span>`);
     } else {
       showDetails(null);
     }
@@ -298,7 +396,9 @@ const ViewA = (() => {
 
   async function init(countries) {
     const host = d3.select("#view-a-canvas");
-    host.html("");
+    // Not host.html(""): the zoom control and the details popup are children of this
+    // canvas now, and emptying it would delete them along with the placeholder.
+    host.selectAll(".placeholder, svg").remove();
 
     state.byCode = new Map(countries.map((c) => [c.code, c]));
 
@@ -331,10 +431,18 @@ const ViewA = (() => {
       .attr("role", "img").attr("aria-label", "World choropleth of cyber incidents");
     state.svg = svg;
 
-    svg.append("path").attr("class", "sphere")
+    // Everything geographic goes in one group, and zooming transforms that group rather
+    // than re-projecting. Re-projecting on every zoom step would be the "correct"
+    // cartographic answer and the wrong engineering one: it would rebuild 240 path
+    // strings per frame to produce a picture indistinguishable from a scale transform
+    // at these magnifications.
+    const mapLayer = svg.append("g").attr("class", "map-layer");
+    state.mapLayer = mapLayer;
+
+    mapLayer.append("path").attr("class", "sphere")
       .attr("d", state.path({ type: "Sphere" }));
 
-    svg.append("g").selectAll("path.country")
+    mapLayer.append("g").selectAll("path.country")
       .data(features).join("path")
       .attr("class", "country")
       .attr("d", state.path)
@@ -348,6 +456,8 @@ const ViewA = (() => {
           : `${f.properties.name}: no incidents recorded`;
       });
 
+    attachZoom(svg, width, height);
+    buildZoom();
     buildToggle();
     draw();
     showDetails(null);

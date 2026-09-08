@@ -423,4 +423,47 @@ stato reale senza dover rileggere tutta la chat.
       controlla che View D usi gli estremi del residuo di View A. Rimettendo Reds il
       controllo fallisce con ΔE 5,0 ed esce 1: è il difetto che prima nessun test vedeva.
 
+- [x] View A — zoom, popup, legenda — 2026-09-08 — **AS index invariato: 61.452**
+      `05_verify_triggers.py` da 21 a **23/23**, `verifyTriggers()` da 13 a **17/17**.
+      **Zoom a due bottoni**, in alto a destra *dentro* il rettangolo della mappa, con
+      limiti `[1, 8]`. Il minimo è 1 — «il mondo intero, adattato» — perché sotto quel
+      valore la mappa rimpicciolirebbe dentro la propria cornice senza rivelare nulla:
+      fuori dalla sfera non c'è niente. Il massimo è 8, che risolve gli stati insulari
+      che EuRepoC registra (Malta, Bahrain, Singapore) senza lasciare che un paese
+      riempia il riquadro: una coropleta confronta luoghi, e un paese solo non confronta
+      niente. I bottoni si disabilitano ai limiti invece di smettere di rispondere.
+      Tornare a 1 azzera anche la traslazione, altrimenti «zoom tutto indietro» non
+      restituirebbe la vista da cui si era partiti.
+      **Applicato senza transizione d3.** Una transizione è guidata da
+      `requestAnimationFrame`, che il browser congela in una scheda nascosta: l'effetto
+      del bottone dipenderebbe da qualcosa fuori dal bottone. Verificato in laboratorio —
+      con `document.hidden` vero nessuna transizione partiva. Un controllo a scatti deve
+      atterrare dove dice, ogni volta che lo si preme.
+      **La rotella NON è un gesto di zoom:** la pagina scrolla, e una rotella che zooma
+      la mappa invece di scorrere oltre fa sembrare la pagina rotta. Zoom = i due
+      bottoni; il trascinamento continua a fare pan, delimitato dal canvas.
+      **Le info paese sono un popup** in basso a sinistra dentro la mappa; il riquadro
+      sotto la mappa è stato eliminato. Nascosto quando non c'è nulla da dire: come
+      pannello sotto la mappa il prompt «click a country» riempiva una scatola che
+      c'era comunque, come popup coprirebbe geometria per non dire niente. L'invito è
+      passato al sottotitolo della view, dove non costa mappa. Tolta la riga
+      «contrast A-vs-B: phase 14»: nominava una fase invece di un risultato, e il
+      contrasto sta in View D, che dichiara già per esteso il proprio confronto.
+      **Bug preso in corsa:** `.map-popup { display: flex }` batteva per specificità
+      l'`[hidden]{display:none}` del browser (una classe vince su un selettore di
+      attributo), quindi il popup compariva come scatola bianca vuota sopra la mappa.
+      **Legenda impilata:** titolo su una riga, valori sulla successiva
+      (`.view-legend.is-stacked`). In linea il titolo mangiava abbastanza larghezza che
+      l'ultima classe del layer attribuzione cadeva da sola sulla riga sotto — e una
+      classe isolata si legge come un gruppo a sé, non come la coda di una scala
+      ordinata. Verificato: ora 6 valori su una riga, nessun orfano. Solo View A aderisce;
+      View B porta due titoli affiancati di proposito.
+      **Controllo che si dichiarava più forte di quanto fosse:** `05` asseriva «the only
+      <button> elements are created by the two-state toggle» ma testava solo che
+      index.html non contenesse bottoni statici — un'etichetta diventata falsa nel
+      momento in cui View A ha avuto lo zoom, senza che il controllo se ne accorgesse.
+      Ora enumera *quali file* creano bottoni e ispeziona i loro handler: nessuno scrive
+      sullo store né chiama un endpoint di analitica. In runtime, 14 pressioni dei
+      bottoni zoom lasciano selezione e barre di View D invariate.
+
 - [ ] Fase 17 — completata il: ___
