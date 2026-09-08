@@ -38,7 +38,8 @@ const ViewC = (() => {
 
   const MARGIN = { top: 8, right: 8, bottom: 22, left: 34 };
 
-  let state = { plot: null, x: null, y: null, area: null, years: [], order: null };
+  let state = { plot: null, x: null, y: null, area: null, years: [], order: null,
+                brushGroup: null };
 
   /** Pivot a long table of {year, type, count} into stacked series. */
   function toSeries(rows, years) {
@@ -125,6 +126,10 @@ const ViewC = (() => {
     const brush = d3.brushX()
       .extent([[0, 0], [innerW, innerH]])
       .on("end", (event) => {
+        // Our own snap-back below re-enters this handler with a null sourceEvent.
+        // Returning early is what stops it from looping and from republishing.
+        if (!event.sourceEvent) return;
+
         if (!event.selection) {
           SelectionStore.setYearRange(null);
           return;
@@ -133,9 +138,17 @@ const ViewC = (() => {
         const from = Math.max(years[0], Math.round(x0));
         const to = Math.min(years[years.length - 1], Math.round(x1));
         SelectionStore.setYearRange(from === to ? [from, from] : [from, to]);
+
+        // Redraw the rectangle on the years actually used. It was left wherever the
+        // mouse was released, so a window analysed as 2016-2022 could be drawn as
+        // 2016.4-2022.7 - the picture and the analysis disagreeing by up to half a year
+        // each side, with only the picture visible. A single-year window would be a
+        // zero-width rectangle, which d3 reads as no selection, so it keeps the drawn
+        // one.
+        if (to > from) state.brushGroup.call(brush.move, [x(from), x(to)]);
         console.info(`[view C] brushed ${from}-${to}`);
       });
-    plot.append("g").attr("class", "brush").call(brush);
+    state.brushGroup = plot.append("g").attr("class", "brush").call(brush);
   }
 
   /**
@@ -168,10 +181,29 @@ const ViewC = (() => {
     state.plot.selectAll("path.band").classed("is-context", true);
     if (!rows.length) return;
 
+    // Draw the focus bands over the BRUSHED years only, not over all 25.
+    //
+    // Built across the full domain, the years outside the window are real zeros, and the
+    // area generator dutifully fills the ramp between a zero and the first selected year
+    // - so a 2016-2022 brush painted colour from 2015 to 2023, spilling past both walls
+    // of the rectangle and claiming selected incidents in years the brush excludes.
+    // Restricting the domain makes the band start and stop exactly where the window does.
+    //
+    // Only when the window comes from the brush: a lasso selects incidents that may be
+    // scattered across the whole timeline, and there the interior zeros are the truth.
+    const range = SelectionStore.getState().yearRange;
+    const domain = range
+      ? state.years.filter((y) => y >= range[0] && y <= range[1])
+      : state.years;
+
+    // An area needs two points. A single-year window has none to draw, and inventing
+    // width for it would misstate the window.
+    if (domain.length < 2) return;
+
     // Same y scale as the context, deliberately: rescaling would make a tiny selection
     // fill the panel and read as though it were the whole corpus.
     state.plot.selectAll("path.band-selected")
-      .data(toSeries(rows, state.years)).join("path")
+      .data(toSeries(rows, domain)).join("path")
       .attr("class", "band-selected")
       .attr("fill", (d) => PALETTE[d.key])
       .attr("d", state.area);
