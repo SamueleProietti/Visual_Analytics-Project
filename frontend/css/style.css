@@ -300,15 +300,25 @@ path.country:hover { fill-opacity: 0.75; }
 
 /* Title on its own line, values on the next. Inline, the title ate enough of the row
    that the attribution layer's last class wrapped alone onto a second line - which
-   reads as a separate group rather than the tail of one scale. Only View A opts in:
-   View B deliberately carries two titles side by side. */
+   reads as a separate group rather than the tail of one scale. */
 .view-legend.is-stacked {
   flex-direction: column;
   align-items: flex-start;
   gap: 3px;
 }
 
-.view-legend.is-stacked .legend-row {
+/* View B carries TWO scales, so its titles stay side by side and each keeps its own
+   values underneath. One run of symbols under two inline titles left the reader to work
+   out where the colour scale ended and the size scale began. */
+.view-legend.is-grouped { align-items: flex-start; gap: 28px; }
+
+.legend-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.legend-row {
   display: flex;
   flex-wrap: wrap;
   gap: 14px;

@@ -6,7 +6,7 @@
   <title>Threat-Shape</title>
   <!-- ?v= is bumped when an asset changes, so a browser holding an old copy is
        forced to refetch instead of silently running stale code. -->
-  <link rel="stylesheet" href="css/style.css?v=35">
+  <link rel="stylesheet" href="css/style.css?v=38">
 </head>
 <body>
 
@@ -47,11 +47,14 @@
 
     <section class="view" id="view-b">
       <h2>View B <span class="view-kind">t-SNE projection</span></h2>
-      <p class="view-sub">drag to lasso · click empty space to clear</p>
+      <!-- The "no units" caveat moved here from a caption inside the plot: it belongs
+           with the instructions, not over the data (CLAUDE.md sec.5 forbids labelling
+           the axes with any implied metric, which is what it guards against). -->
+      <p class="view-sub">drag to lasso · click empty space to clear · axes have no units, distances between clusters are not meaningful</p>
       <div class="view-canvas" id="view-b-canvas">
         <span class="placeholder">phase 7</span>
       </div>
-      <div class="view-legend" id="view-b-legend"></div>
+      <div class="view-legend is-grouped" id="view-b-legend"></div>
     </section>
 
     <section class="view" id="view-d">
@@ -82,14 +85,14 @@
   </div><!-- /.app-shell -->
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
-  <script src="js/selectionStore.js?v=35"></script>
-  <script src="js/viewA_map.js?v=35"></script>
-  <script src="js/viewB_scatter.js?v=35"></script>
-  <script src="js/viewC_timeline.js?v=35"></script>
-  <script src="js/viewD_contrast.js?v=35"></script>
-  <script src="js/main.js?v=35"></script>
+  <script src="js/selectionStore.js?v=38"></script>
+  <script src="js/viewA_map.js?v=38"></script>
+  <script src="js/viewB_scatter.js?v=38"></script>
+  <script src="js/viewC_timeline.js?v=38"></script>
+  <script src="js/viewD_contrast.js?v=38"></script>
+  <script src="js/main.js?v=38"></script>
   <!-- Verification tool, not application code. Kept separate so the trigger
        audit can prove that only three things write to the selection store. -->
-  <script src="js/verify.js?v=35"></script>
+  <script src="js/verify.js?v=38"></script>
 </body>
 </html>

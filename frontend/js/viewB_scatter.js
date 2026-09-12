@@ -68,8 +68,15 @@ const ViewB = (() => {
     const legend = d3.select("#view-b-legend");
     legend.selectAll("*").remove();
 
-    legend.append("span").attr("class", "legend-title").text("weighted intensity:");
-    const swatches = legend.selectAll("span.legend-item.c")
+    // Two encodings, two groups side by side, each with its title above its values.
+    // The titles used to sit inline with the swatches, which put two different scales on
+    // one run of symbols and left the reader to work out where one ended and the other
+    // began. Grouping is the separation.
+    const colourGroup = legend.append("div").attr("class", "legend-group");
+    colourGroup.append("span").attr("class", "legend-title").text("weighted intensity");
+    const colourRow = colourGroup.append("div").attr("class", "legend-row");
+
+    const swatches = colourRow.selectAll("span.legend-item.c")
       .data(COLOURS.map((c, i) => ({ c, i })))
       .join("span").attr("class", "legend-item c");
     swatches.append("span").attr("class", "legend-swatch").style("background", (d) => d.c);
@@ -77,10 +84,11 @@ const ViewB = (() => {
 
     // Size legend: three reference circles drawn at the same scale as the plot, so the
     // reader can compare against the marks rather than guess.
-    legend.append("span").attr("class", "legend-title").style("margin-left", "10px")
-      .text("affected entities:");
+    const sizeGroup = legend.append("div").attr("class", "legend-group");
+    sizeGroup.append("span").attr("class", "legend-title").text("affected entities");
+    const sizeRow = sizeGroup.append("div").attr("class", "legend-row");
     const sizes = [0, 10, 1000];
-    const svg = legend.append("svg").attr("width", 108).attr("height", 20);
+    const svg = sizeRow.append("svg").attr("width", 108).attr("height", 20);
     let x = 8;
     for (const value of sizes) {
       const r = radiusFor(value);
@@ -163,13 +171,10 @@ const ViewB = (() => {
       + `${d.year ?? "no date"} · intensity ${d.weighted_intensity ?? "?"} · `
       + `${d.affected_entities_value ?? 0} affected entities`);
 
-    // A standing reminder that the plane has no metric. Phrased as a caption, not an
-    // axis label, precisely because there is no axis to label.
-    svg.append("text")
-      .attr("x", width - 4).attr("y", height - 5)
-      .attr("text-anchor", "end")
-      .attr("font-size", 9).attr("fill", "#9a9a9a")
-      .text("axes have no units · distances between clusters are not meaningful");
+    // The "no units" caveat is no longer painted over the plot. It still has to be
+    // said - it is what stops the plane being read as a map - so it moved to the view's
+    // subtitle in index.html, beside the other instructions. Same statement, off the
+    // data.
 
     state.x = x;
     state.y = y;
@@ -195,12 +200,19 @@ const ViewB = (() => {
       event.preventDefault();
       state.drawing = true;
       state.vertices = [point(event)];
-      state.lassoPath.attr("d", "").classed("is-active", true);
+      // No outline is drawn while a local layout is on screen: the gesture cannot
+      // produce a selection there (see mouseup), and drawing it would promise one.
+      if (!local.active) state.lassoPath.attr("d", "").classed("is-active", true);
     });
 
     svg.on("mousemove", (event) => {
       if (!state.drawing) return;
+      // Vertices are recorded even in the local layout, where no lasso will be drawn or
+      // acted on. They are what distinguishes a drag from a click at mouseup, and
+      // without them a drag would fall through to the click branch and clear the
+      // selection - doing something, when the point is to do nothing.
       state.vertices.push(point(event));
+      if (local.active) return;
       state.lassoPath.attr("d", "M" + state.vertices.map((p) => p.join(",")).join("L") + "Z");
     });
 
@@ -211,9 +223,24 @@ const ViewB = (() => {
       state.drawing = false;
       state.lassoPath.attr("d", "").classed("is-active", false);
 
-      // Fewer than three vertices is a click, not a lasso: treat it as "clear".
+      // Fewer than three vertices is a click, not a lasso: treat it as "clear". This
+      // stays available in the local layout - it is the way back to the global one.
       if (state.vertices.length < 3) {
         SelectionStore.setLasso(null);
+        return;
+      }
+
+      // No lassoing inside a local re-projection.
+      //
+      // The two layouts are different coordinate systems, and a lasso is a claim about
+      // position. While the local one is on screen the points it does not contain are
+      // hidden rather than dimmed, so an enclosure here could only ever mean "a
+      // sub-cluster of the sub-cluster" - a drill-down whose result would replace the
+      // very selection the analyst is reading, with no way back to it. Clearing returns
+      // to the global layout, where a new lasso means what it says.
+      if (local.active) {
+        console.info("[view B] lasso ignored: the local layout is on screen. "
+          + "Click empty space to return to the global one, then lasso again.");
         return;
       }
       // Test against where each point is drawn NOW, not against its global coordinates.
@@ -240,8 +267,15 @@ const ViewB = (() => {
    * selection is read against the shape of the whole corpus instead of floating in an
    * empty plane.
    */
-  function applySelection(snapshot) {
+  function applySelection(snapshot, origin) {
     if (!state.points) return;
+
+    // A local layout describes ONE selection. When the next selection comes from
+    // somewhere else - a map click, a timeline brush - that layout no longer describes
+    // what is selected, so the global one comes back rather than being left on screen
+    // with a different set highlighted on it.
+    if (local.active && origin && origin !== "projection") restoreGlobal();
+
     if (snapshot.empty) {
       restoreGlobal();
       state.points.attr("fill-opacity", 0.78).attr("stroke", "#ffffff")
@@ -277,10 +311,11 @@ const ViewB = (() => {
       .text(text);
   }
 
-  /** Put every point back on its global coordinates. */
+  /** Put every point back on its global coordinates, and back on screen. */
   function restoreGlobal() {
     if (!local.active) { setBanner(null); return; }
     local.active = false;
+    state.points.attr("display", null);
     state.points.transition().duration(400)
       .attr("cx", (d) => state.x(d.x))
       .attr("cy", (d) => state.y(d.y));
@@ -324,6 +359,18 @@ const ViewB = (() => {
       +state.svg.attr("height"), 20);
 
     local.active = true;
+
+    // Everything outside the subset is HIDDEN, not dimmed.
+    //
+    // Context-behind-focus works in View C because context and focus share one pair of
+    // axes. Here they would not: a re-projected point sits in the local embedding, an
+    // unselected one in the global embedding, and drawing both on the same plane puts
+    // two coordinate systems in one picture. The faded points were not the same data in
+    // the background - they were a different map underneath, and a lasso drawn over the
+    // result caught both. Set directly rather than through the transition: whether a
+    // mark is on screen must not depend on an animation frame.
+    state.points.attr("display", (d) => (byId.has(d.incident_id) ? null : "none"));
+
     state.points.transition().duration(600)
       .attr("cx", (d) => (byId.has(d.incident_id) ? lx(byId.get(d.incident_id).x) : state.x(d.x)))
       .attr("cy", (d) => (byId.has(d.incident_id) ? ly(byId.get(d.incident_id).y) : state.y(d.y)));
@@ -338,6 +385,7 @@ const ViewB = (() => {
   function restoreGlobalKeepBanner() {
     if (!local.active) return;
     local.active = false;
+    state.points.attr("display", null);
     state.points.transition().duration(400)
       .attr("cx", (d) => state.x(d.x)).attr("cy", (d) => state.y(d.y));
   }

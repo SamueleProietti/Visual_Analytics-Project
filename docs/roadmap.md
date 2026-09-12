@@ -535,4 +535,34 @@ stato reale senza dover rileggere tutta la chat.
       tratteggiato (prima diventava grigio 0,8px). Caso reale ripreso a schermo: Città
       del Vaticano, inaffidabile, cliccata → mantiene entrambi i segnali.
 
+- [x] View B — legenda, didascalia, e la ri-proiezione isolata — 2026-09-12
+      **AS index invariato: 61.452.** 23/23 trigger, 39/39 visivo, 20/20 runtime, 20/20 legende.
+      **Legenda in due gruppi.** I due titoli («weighted intensity», «affected entities»)
+      restano sulla stessa riga, ciascuno con i propri valori sotto. Prima erano in linea
+      con i simboli, il che metteva due scale diverse su un'unica fila e lasciava al
+      lettore il compito di capire dove finiva il colore e cominciava la dimensione.
+      **Didascalia «axes have no units…» tolta dal grafico**, spostata nel sottotitolo
+      della view. L'avvertenza serve — è ciò che impedisce di leggere il piano come una
+      mappa — ma sta con le istruzioni, non sopra i dati.
+      **Il difetto vero: due sistemi di coordinate nello stesso piano.** Dopo la
+      ri-proiezione locale i punti selezionati si spostano nell'embedding locale mentre
+      quelli non selezionati restavano visibili *sbiaditi alle loro coordinate globali*.
+      Non erano «gli stessi dati sullo sfondo»: erano una mappa diversa disegnata sotto.
+      Il context+focus funziona in View C perché contesto e fuoco condividono gli assi;
+      qui no. E un secondo lazo catturava entrambi, producendo una selezione che mescola
+      «vicini nell'embedding locale» con «capitati in quel punto nel layout vecchio».
+      Ora i punti fuori dal sottoinsieme sono **nascosti**, non sbiaditi (impostato
+      direttamente, non dentro la transizione: se un segno è a schermo non deve dipendere
+      da un frame di animazione), e **il lazo è sospeso** finché il layout locale è
+      attivo. Il click su spazio vuoto resta attivo: è la via di ritorno al globale.
+      **Sotto-difetto preso in corsa:** bloccando il `mousemove` durante il layout locale,
+      un trascinamento non accumulava vertici e cadeva nel ramo «meno di tre vertici =
+      click», *azzerando la selezione*. Cioè faceva qualcosa, quando il punto era non
+      fare nulla. Ora i vertici si registrano comunque; è solo il disegno e la selezione
+      a essere sospesi.
+      **Coerenza aggiunta:** se arriva una selezione da un'altra view (click sulla mappa,
+      brush temporale) mentre il layout locale è a schermo, si torna al globale. Un
+      embedding locale descrive *una* selezione; lasciarlo con un'altra evidenziata
+      sopra sarebbe una figura che non corrisponde più ai dati che mostra.
+
 - [ ] Fase 17 — completata il: ___
