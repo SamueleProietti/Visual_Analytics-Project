@@ -131,19 +131,40 @@ const ViewA = (() => {
     return state.layer;
   }
 
+  /* The border carries TWO independent facts, on two channels that do not fight:
+   *
+   *   colour     was this country chosen by the analyst?   grey = no, black = yes
+   *   dash       is its residual trustworthy?              solid = yes, dashed = no
+   *
+   * They used to be one channel. The CSS rule for an unreliable country set the stroke
+   * colour too, and a CSS declaration outranks the presentation attribute set here, so
+   * "unreliable" silently erased "selected" - on a residual map, where 104 of 168
+   * countries are typically unreliable, that hid most of the selection.
+   *
+   * The third state this used to have, a purple border for countries merely TOUCHED by
+   * a lasso or a brush, is gone. Measured, it marked 66% of the world on a tight lasso
+   * and 91% on a time brush: a mark that applies to nearly everything separates nothing.
+   * View A already answers a lasso by repainting all 168 countries onto the residual
+   * scale, which is a far louder statement that the view is a target as well as a
+   * source, and the popup still reports how many countries the selection touches.
+   */
   function draw() {
     const svg = state.svg;
+    const unreliable = (f) => {
+      if (activeLayer() !== "residual") return false;
+      const d = state.byNumeric.get(String(+f.id));
+      return !!(d && d.residual && !d.residual.reliable);
+    };
+
     svg.selectAll("path.country")
       .attr("fill", (f) => colourFor(state.byNumeric.get(String(+f.id))))
-      .classed("is-unreliable", (f) => {
-        if (activeLayer() !== "residual") return false;
-        const d = state.byNumeric.get(String(+f.id));
-        return !!(d && d.residual && !d.residual.reliable);
-      })
-      .attr("stroke", (f) => (state.selected.has(codeOf(f))
-        ? (state.indirect ? "#6a51a3" : "#1a1a1a") : OUTLINE))
-      .attr("stroke-width", (f) => (state.selected.has(codeOf(f))
-        ? (state.indirect ? 1.0 : 1.6) : 0.3));
+      .classed("is-unreliable", unreliable)
+      .attr("stroke", (f) => (state.selected.has(codeOf(f)) ? "#1a1a1a" : OUTLINE))
+      // Widths live here rather than in the CSS so one function decides the whole
+      // border. A dashed hairline at 0.3px reads as a smudge, so an unreliable country
+      // gets enough weight for the dashes to be legible as dashes.
+      .attr("stroke-width", (f) => (state.selected.has(codeOf(f)) ? 1.6
+        : (unreliable(f) ? 0.9 : 0.3)));
     renderLegend();
   }
 
@@ -428,17 +449,17 @@ const ViewA = (() => {
   function renderSelection(snapshot) {
     const codes = new Set(SelectionStore.getState().countries);
 
-    // A lasso or a brush selects incidents, not countries. Highlighting the countries
-    // those incidents hit is what makes the map a target as well as a source - the
-    // proposal's "each view both source and target".
+    // A lasso or a brush selects incidents, not countries, so the countries those
+    // incidents hit are still counted - the popup reports the figure. They are no longer
+    // outlined: see draw(). The border now means "the analyst picked this", and only a
+    // map click can say that.
     const touched = new Set();
     if (!snapshot.empty && !codes.size) {
       for (const incident of snapshot.selected) {
         for (const c of incident.countries || []) touched.add(c);
       }
     }
-    state.selected = codes.size ? codes : touched;
-    state.indirect = codes.size === 0 && touched.size > 0;
+    state.selected = codes;
     draw();
 
     const list = [...codes];

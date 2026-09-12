@@ -413,10 +413,13 @@ path.band-selected { fill-opacity: 0.95; pointer-events: none; }
 /* Unreliable cells are marked, never hidden: sec.6.1 asks for a badge instead of a
    suppressed value. Diagonal hatching reads as "treat with caution" without changing
    the fill, so the residual itself stays legible underneath. */
+/* Dash pattern ONLY. The colour and the width are set in draw(), because a CSS
+   declaration outranks a presentation attribute: setting the stroke colour here erased
+   the black border of a country the analyst had clicked, whenever that country's
+   residual was unreliable - which on a residual map is most of them. Dash carries
+   reliability, colour carries selection, and neither overwrites the other. */
 path.country.is-unreliable {
   stroke-dasharray: 2 2;
-  stroke: #8a8a8a;
-  stroke-width: 0.8;
 }
 
 .legend-swatch.is-unreliable-swatch {

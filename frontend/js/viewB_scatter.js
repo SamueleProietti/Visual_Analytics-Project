@@ -16,11 +16,10 @@ const ViewB = (() => {
   // midpoint or sign (CLAUDE.md sec.2).
   //
   // ColorBrewer Greens, not Purples. Purple was doing two jobs at once - it was this
-  // ramp AND the colour of a selection (the lasso outline, the local-projection banner,
-  // the indirect-selection outline on the map). A point could be dark because it was
-  // intense or because it was picked, which is the one distinction this view exists to
-  // support. Moving intensity to green leaves purple to mean "chosen by the analyst"
-  // and nothing else.
+  // ramp AND the colour of a selection (the lasso outline, the local-projection banner).
+  // A point could be dark because it was intense or because it was picked, which is the
+  // one distinction this view exists to support. Moving intensity to green leaves purple
+  // to mean "chosen by the analyst" and nothing else.
   const COLOURS = ["#edf8e9", "#c7e9c0", "#a1d99b", "#74c476", "#41ab5d", "#238b45", "#005a32"];
 
   const R_MIN = 2.0;

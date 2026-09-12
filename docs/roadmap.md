@@ -504,4 +504,35 @@ stato reale senza dover rileggere tutta la chat.
       che nomina il confronto: «which sectors are hit, against the global sector mix ·
       more than expected: … · less than expected: …».
 
+- [x] View A — un bordo, due canali separabili — 2026-09-12 — **AS index invariato: 61.452**
+      Emerso da una domanda in fase di test: «cosa significano i bordi viola e
+      tratteggiati?». Spiegandolo è venuto fuori che si sovrascrivevano.
+      **Il bordo portava tre cose su un canale solo:** grigio sottile = non selezionato,
+      nero spesso = paese cliccato, viola = paese *toccato* da un lasso o da un brush,
+      tratteggiato grigio = residuo inaffidabile (attesi < 5). Misurato nel browser, la
+      regola CSS `.is-unreliable` **vinceva** sull'attributo inline impostato da `draw()`
+      (una dichiarazione CSS batte un attributo di presentazione), quindi «inaffidabile»
+      cancellava «selezionato». Su una mappa in stato residuo, dove tipicamente 104 paesi
+      su 168 sono inaffidabili, spariva la maggior parte della selezione — compreso il
+      bordo nero del paese appena cliccato.
+      **Il viola è stato rimosso.** Misurato su selezioni tipiche marcava il **66%** del
+      mondo con un lasso stretto e il **91%** con un brush temporale: un marcatore che si
+      applica a quasi tutto non separa niente. E fra il 22% e il 47% dei paesi viola lo
+      perdeva comunque sotto il tratteggio, quindi era anche intermittente. Il requisito
+      «ogni view è sorgente e bersaglio» resta soddisfatto molto più fortemente dal fatto
+      che al lasso **l'intera mappa cambia layer e ridipinge tutti i 168 paesi** sulla
+      scala del residuo; e il conteggio non si perde, il popup scrive ancora
+      «touching N countries». Argomento percettivo, da riportare: VA_07_C — la
+      *congiunzione* di feature pre-attentive smette di essere pre-attentiva, e colore
+      del tratto + stile del tratto sullo stesso bordo sono dimensioni integrali
+      (Ware). Qui non interferivano soltanto: si sovrascrivevano.
+      **Ora il bordo porta due fatti su due canali separabili:** il *colore* dice se
+      l'analista ha scelto quel paese (grigio / nero), il *tratteggio* dice se il residuo
+      è affidabile (continuo / tratteggiato). La regola CSS dichiara solo
+      `stroke-dasharray`; colore e spessore li decide `draw()`, così una funzione sola
+      governa tutto il bordo.
+      Verificato sui quattro stati: `selected + unreliable` ora resta nero 1,6px **e**
+      tratteggiato (prima diventava grigio 0,8px). Caso reale ripreso a schermo: Città
+      del Vaticano, inaffidabile, cliccata → mantiene entrambi i segnali.
+
 - [ ] Fase 17 — completata il: ___
