@@ -319,11 +319,32 @@ def check_legends():
         check(f"View {view} populates its legend", "renderLegend" in text)
 
 
+def css_block(css, selector):
+    """Body of the first rule whose selector is exactly `selector`."""
+    match = re.search(r"(?m)^" + re.escape(selector) + r"\s*\{([^}]*)\}", css)
+    return match.group(1) if match else ""
+
+
 def check_fixed_size():
     rule("5. VIEWS ARE FIXED-SIZE AND DO NOT SCROLL")
     css = (ROOT / "frontend" / "css" / "style.css").read_text(encoding="utf-8")
-    check("view canvases have a fixed height", "height: var(--view-h)" in css)
-    check("view canvases clip rather than scroll", "overflow: hidden" in css)
+
+    # The canvases are no longer a fixed pixel height: the dashboard is sized from the
+    # window so all four views fit one screen. What "fixed-size" has to mean now is that
+    # nothing INSIDE a view can change the size of its chart after the chart is drawn -
+    # so the parts around the canvas have fixed heights, and the canvas itself may take
+    # the remaining space but can neither grow with its content nor scroll.
+    canvas = css_block(css, ".view-canvas")
+    check("view canvases take the remaining space and may shrink below their content",
+          "flex: 1 1 auto" in canvas and "min-height: 0" in canvas)
+    check("view canvases clip rather than scroll", "overflow: hidden" in canvas)
+    for selector, token in [(".view-head", "var(--head-h)"), (".view-sub", "var(--sub-h)"),
+                            (".view-legend", "var(--legend-h)")]:
+        block = css_block(css, selector)
+        check(f"{selector} has a fixed height, so it cannot push the chart",
+              f"height: {token}" in block and "flex: none" in block)
+    check("the dashboard is sized from the window, not from the page content",
+          "100vh" in css_block(css, ".app-shell"))
     check("inline svg is display:block (baseline gap caused a scroll in phase 6)",
           ".view-canvas svg { display: block; }" in css)
 

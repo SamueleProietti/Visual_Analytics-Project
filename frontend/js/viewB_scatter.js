@@ -87,17 +87,27 @@ const ViewB = (() => {
     const sizeGroup = legend.append("div").attr("class", "legend-group");
     sizeGroup.append("span").attr("class", "legend-title").text("affected entities");
     const sizeRow = sizeGroup.append("div").attr("class", "legend-row");
+    // 15px tall: one line of legend text plus a little, so it fits the legend's fixed
+    // two-line height. The circles are still drawn with the plot's own radiusFor(), so
+    // they stay directly comparable with the marks - the 1000 circle is about 12px wide,
+    // which the height holds. Width is measured from what was drawn rather than fixed.
     const sizes = [0, 10, 1000];
-    const svg = sizeRow.append("svg").attr("width", 108).attr("height", 20);
-    let x = 8;
+    const svg = sizeRow.append("svg").attr("height", 15);
+    let x = 7;
+    let right = 0;
     for (const value of sizes) {
       const r = radiusFor(value);
-      svg.append("circle").attr("cx", x).attr("cy", 10).attr("r", r)
+      svg.append("circle").attr("cx", x).attr("cy", 7.5).attr("r", r)
         .attr("fill", "none").attr("stroke", "#6a6a6a");
-      svg.append("text").attr("x", x + r + 3).attr("y", 13)
+      const label = svg.append("text").attr("x", x + r + 3).attr("y", 11)
         .attr("font-size", 9).attr("fill", "#6b6b6b").text(value);
-      x += r + 30;
+      // getComputedTextLength() is 0 if the legend is not laid out yet; fall back to
+      // an estimate rather than sizing the svg to nothing.
+      right = x + r + 3 + (label.node().getComputedTextLength()
+        || String(value).length * 5.5);
+      x += r + 24;
     }
+    svg.attr("width", Math.ceil(right) + 2);
   }
 
   /**

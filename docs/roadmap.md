@@ -565,4 +565,59 @@ stato reale senza dover rileggere tutta la chat.
       embedding locale descrive *una* selezione; lasciarlo con un'altra evidenziata
       sopra sarebbe una figura che non corrisponde più ai dati che mostra.
 
+- [x] Layout a finestra intera — 2026-09-17 — **AS index invariato: 61.452**
+      `06_verify_visual.py` da 39 a **43/43**, `verifyLegends()` da 20 a **30/30**,
+      `05` **23/23**, `verifyTriggers()` **20/20**.
+      **Il problema, misurato:** dallo screenshot del portatile usato per la demo, il
+      browser lascia alla pagina circa **1265 × 629 px CSS** (display ad alta densità
+      scalato a 2×, meno interfaccia del browser e barra delle applicazioni). Il layout
+      2×2 con canvas fissi da 340px ne richiedeva circa 1.000: la pagina scrollava e
+      **non mostrava mai le quattro view coordinate insieme** — cioè brushare la timeline
+      con la mappa fuori schermo.
+      **Il nuovo layout,** ispirato al progetto di riferimento mastro94 (mappa del mondo,
+      tre view sopra, una a tutta larghezza sotto): A | B | D in alto, C a tutta
+      larghezza in basso. Scelto dalla forma naturale di ogni grafico e non tenuto il 2×2
+      del mockup (che nella proposta è marcato «draft»): la mappa Equal Earth vuole ~2:1,
+      il piano t-SNE è circa quadrato, il pannello di contrasto ha bisogno di un margine
+      per le etichette, e la timeline è l'unico grafico che si legge meglio come striscia
+      larga e bassa. Nel 2×2 a quell'altezza ogni view era a corto di altezza mentre mappa
+      e t-SNE sprecavano metà della larghezza.
+      Colonne `1.9fr / 1.1fr / 1.25fr`, righe `1.7fr / 1fr`, dimensionate sulla finestra
+      (`100vh`) e non su costanti in pixel. Misure dei canvas: a 1265×629 mappa 532×275,
+      t-SNE 299×275, contrasto 343×275, timeline 1226×167; a 1905×937 rispettivamente
+      818×469, 465×469, 531×469, 1866×281. **Pagina alta esattamente quanto la finestra
+      in tutti e tre i casi provati** (anche 1521×722). Sotto 1100px di larghezza si passa
+      a due colonne con scroll di pagina: più leggibile che rimpicciolire.
+      **«Viste a dimensione fissa» ridefinito, non abbandonato.** Il canvas non ha più
+      un'altezza in pixel, ma nulla *dentro* una view può cambiarne la dimensione dopo che
+      il grafico è stato disegnato: titolo, sottotitolo e legenda hanno altezze fisse,
+      il canvas prende il resto con `min-height: 0` e `overflow: hidden`. Il verificatore
+      statico controlla ora queste proprietà invece della vecchia `height: var(--view-h)`.
+      **Spazio recuperato togliendo i duplicati:** la nota di View C («bands count type
+      occurrences…») era sia nel sottotitolo sia in legenda; quella di View D («bar length
+      = … order = |z|») idem. Ciascuna ora compare una volta. La legenda di D al posto del
+      duplicato spiega ciò che prima non spiegava: *barre sbiadite e tratteggiate = non
+      passano il test di validità*.
+      **L'intestazione del confronto di View D ha una riga tutta sua.** Condivideva la riga
+      del titolo e veniva troncata esattamente quando era più lunga — e CLAUDE.md §5 vieta
+      di lasciare implicito il termine di confronto.
+      **View D si adatta all'altezza:** una barra ogni 26px, fra 6 e 14 (9 sul portatile,
+      14 su un 1080p, dove prima nove barre fisse erano spesse il doppio del necessario e
+      nascondevano cinque feature). Il margine delle etichette non supera il 45% del
+      pannello, e le etichette troppo lunghe sono accorciate con «…» e testo completo nel
+      tooltip — prima sforavano a sinistra e il taglio mangiava proprio il prefisso
+      («impact:», «issue:») che dice di che tipo di feature si tratta.
+      **Due difetti presi dalle nuove misure, non a occhio:** la legenda di View B
+      sforava di 5px (SVG dei cerchi alto 20px in una legenda da due righe, ora 15px con
+      larghezza misurata sul testo); e il popup della mappa **tagliava le ultime righe** —
+      proprio «less than expected», metà della risposta — perché il limite del 46% su un
+      canvas da 275px non bastava. Ora il popup è più compatto e i nomi di settore sono
+      accorciati a 24 caratteri per restare su una riga.
+      **Nuovi controlli runtime:** in ogni stato, nessuna legenda è tagliata, la dashboard
+      entra nella finestra senza scroll di pagina (quando la finestra è ≥ 1100×560), e il
+      popup del paese mostra tutte le sue righe.
+      **Limite noto, ora più rilevante:** le view misurano il proprio riquadro al
+      caricamento. Ridimensionare la finestra dopo — incluso passare a schermo intero con
+      F11 durante la demo — non le ridisegna. Da risolvere prima della presentazione.
+
 - [ ] Fase 17 — completata il: ___

@@ -178,7 +178,15 @@ const ViewA = (() => {
     const legend = d3.select("#view-a-legend");
     legend.selectAll("*").remove();
 
-    legend.append("span").attr("class", "legend-title").text(layer.legendTitle);
+    // On the residual layer the reliability count rides on the title line. It used to
+    // be a third line of its own, and the legend has a fixed two-line height now - a
+    // third line would be clipped, or would have to steal height from the map.
+    const title = legend.append("span").attr("class", "legend-title").text(layer.legendTitle);
+    if (activeLayer() === "residual" && state.residuals && state.residuals.summary) {
+      title.append("span").attr("class", "legend-note")
+        .text(` · ${state.residuals.summary.reliable} of `
+          + `${state.residuals.summary.countries} countries have a reliable residual`);
+    }
 
     // The classes go in their own row under the title. Inline, the title took enough of
     // the width that the attribution layer's last class dropped onto a second line by
@@ -200,11 +208,8 @@ const ViewA = (() => {
     if (activeLayer() === "residual" && state.residuals) {
       const flagged = row.append("span").attr("class", "legend-item");
       flagged.append("span").attr("class", "legend-swatch is-unreliable-swatch");
-      flagged.append("span").text(`small sample (expected < ${state.residuals
+      flagged.append("span").text(`small sample (exp. < ${state.residuals
         ? state.residuals.summary.min_expected : 5})`);
-      legend.append("span").attr("class", "legend-note")
-        .text(`${state.residuals.summary.reliable} of `
-          + `${state.residuals.summary.countries} countries have a reliable residual`);
     }
   }
 
@@ -364,7 +369,11 @@ const ViewA = (() => {
     if (residuals && residuals.sectors && residuals.sectors.length) {
       const format = (s) => {
         const badge = s.reliable ? "" : ' <em class="badge">small n</em>';
-        return `${s.sector.split("(")[0].trim().slice(0, 30)} `
+        // Sector names are cut at 24 characters so each direction stays on one line of
+        // the popup - "State institutions / political system" would otherwise wrap and
+        // push the other direction out of the box.
+        const name = s.sector.split("(")[0].trim();
+        return `${name.length > 24 ? name.slice(0, 23) + "…" : name} `
           + `<strong>z ${s.z > 0 ? "+" : ""}${s.z.toFixed(1)}</strong>${badge}`;
       };
       const over = residuals.sectors.filter((s) => s.z > 0).slice(0, 2);

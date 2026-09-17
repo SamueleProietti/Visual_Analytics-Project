@@ -17,55 +17,69 @@
   --pending: #b26a00;
   --error: #c62828;
 
-  /* The views never scroll (CLAUDE.md sec.2 penalises unjustified scrollable views).
-     "Fixed-size" there means the contents always fit without scrolling, not a fixed
-     pixel width - so the columns stretch to fill the viewport, and each view measures
-     its own box at draw time. What stays fixed is the HEIGHT: a view that grew taller
-     with its content is exactly the case the rule is aimed at.
+  /* Layout is sized from the window, not from pixel constants.
 
-     --view-min-w is the width below which the grid drops to one column rather than
-     squeezing two. Set from View D, the most width-hungry view: its 168px label gutter
-     plus a readable bar field stops working under roughly 460px. */
-  --view-min-w: 460px;
-  --view-h: 340px;
+     Measured on the machine the demo will run on, the browser leaves about 1265 x 629
+     CSS px for the page (a high-density laptop scaled to 2x, minus browser chrome and
+     taskbar). The old layout - four 340px canvases in a 2x2 plus titles, legends and
+     generous gaps - needed about 1,000px of height, so the page scrolled and never showed
+     all four coordinated views at once. That is the one thing a coordinated-view tool
+     cannot afford: brushing the timeline while its effect on the map is scrolled off
+     screen is not coordination anyone can see.
 
-  /* Caps the grid on very wide monitors, and centres it there. Uncapped, two columns on
-     a 4K screen sit so far apart that comparing a pair of coordinated views means moving
-     the head - which works against the coordination the whole tool is built on. */
-  --page-max-w: 1760px;
+     The fixed parts of each view are therefore given fixed heights, and the chart takes
+     whatever is left. --line is one line of the 10.5px secondary text. */
+  --line: 13px;
+  --gap: 6px;
+  --head-h: 20px;                               /* view title row */
+  --sub-h: calc(2 * var(--line));               /* instructions: two lines, top row */
+  --legend-h: calc(2 * var(--line) + 4px);      /* legend: title + values, or two rows */
+
+  /* Below this the dashboard stops shrinking and the PAGE scrolls instead. Past this
+     point the charts would be too small to read, and a scrolling page is the lesser
+     failure than an unreadable one - the views themselves still never scroll. */
+  --grid-min-h: 520px;
 }
 
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  padding: 20px 24px;
+  padding: var(--gap) 10px;
   background: var(--surface-sunken);
   color: var(--ink);
   font: 14px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif;
 }
 
-/* One centred column holding the header and the grid, so the whole page shares the same
-   left and right edge instead of the title hugging one side of a centred grid. */
+/* One column the height of the window: header, then the grid takes the rest. No width
+   cap below 2400px - the grid is proportioned against the window's HEIGHT, and capping
+   the width while the height keeps growing would squash every view on a large screen. */
 .app-shell {
-  max-width: var(--page-max-w);
+  max-width: 2400px;
   margin: 0 auto;
+  height: calc(100vh - 2 * var(--gap));
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
 }
 
 /* ---------- header ---------- */
 
+/* A slim title bar, as in the reference dashboards. The previous 22px heading with its
+   margins cost about 60px of height that no chart could use. */
 .app-header {
+  flex: none;
   display: flex;
   align-items: baseline;
-  gap: 18px;
-  margin-bottom: 18px;
+  gap: 14px;
 }
 
 .app-header h1 {
   margin: 0;
-  font-size: 22px;
+  font-size: 15px;
+  line-height: 20px;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
 }
 
 /* Failure banner, not a status chip. It stays hidden while the stack is healthy: a
@@ -85,42 +99,86 @@ body {
 
 .app-alert--pending { color: var(--pending); background: #fffaf0; }
 
+.app-alert { flex: none; }
+
 /* ---------- view grid ---------- */
 
-/* 2x2, matching docs/Img_mockup.png. Source order in the HTML is A, B, D, C, which
-   lays out as A B / D C - the mockup's arrangement. */
+/* Three views across the top, the timeline full width underneath.
+
+   Column widths follow what each chart needs at the top row's height rather than being
+   equal: the map is about 2:1 (Equal Earth), the t-SNE plane roughly square, and the
+   contrast panel needs a label gutter plus room for bars. The bottom row is shorter
+   because a timeline reads well as a strip, and every pixel it gives up goes to the
+   three charts that need height. */
 .view-grid {
+  flex: 1 1 auto;
+  min-height: var(--grid-min-h);
   display: grid;
-  /* Exactly two columns, sharing the full width via 1fr instead of sitting at a fixed
-     590px and leaving a dead margin on the right.
-     NOT repeat(auto-fit, ...): auto-fit decides the column COUNT from the available
-     width, and on a 1600px screen it fitted three - which silently breaks the A B / D C
-     pairing the mockup specifies. The count is a design decision here, not a
-     consequence of the viewport, so it is stated.
-     minmax(0, 1fr) rather than plain 1fr: a grid track's default minimum is auto, which
-     an SVG wider than its share can push open, forcing a horizontal scroll. */
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 22px;
+  grid-template-columns: minmax(0, 1.9fr) minmax(0, 1.1fr) minmax(0, 1.25fr);
+  grid-template-rows: minmax(0, 1.7fr) minmax(0, 1fr);
+  grid-template-areas:
+    "a b d"
+    "c c c";
+  gap: var(--gap);
 }
 
-/* Below two readable columns the pairing is worth less than the width, so the grid
-   stacks rather than squeezing both views under the point where View D's label gutter
-   stops being legible. 2 x 460px + gap + the body padding. */
-@media (max-width: 990px) {
-  .view-grid { grid-template-columns: minmax(0, 1fr); }
+.view--a { grid-area: a; }
+.view--b { grid-area: b; }
+.view--d { grid-area: d; }
+.view--c { grid-area: c; }
+
+/* Narrower than a laptop: three columns would make the charts unreadable, so fall back
+   to two and let the page scroll - the views keep a usable size instead of shrinking. */
+@media (max-width: 1099px) {
+  .app-shell { height: auto; }
+  .view-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: 380px 360px 250px;
+    grid-template-areas:
+      "a a"
+      "b d"
+      "c c";
+  }
 }
 
+@media (max-width: 759px) {
+  .view-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 340px 360px 360px 250px;
+    grid-template-areas: "a" "b" "d" "c";
+  }
+}
+
+/* Each view is a column: fixed-height head, sub and legend, and a canvas that takes
+   exactly what is left. min-height:0 is what lets a flex child shrink below its content;
+   without it the canvas's SVG would hold the view open at its first-drawn size. */
 .view {
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
   background: var(--surface);
   border: 1px solid var(--rule);
   border-radius: 4px;
-  padding: 12px 14px 10px;
+  padding: 4px 9px 5px;
+}
+
+.view-head {
+  flex: none;
+  height: var(--head-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
 }
 
 .view h2 {
   margin: 0;
-  font-size: 14px;
+  font-size: 13px;
+  line-height: var(--head-h);
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .view-kind {
@@ -128,14 +186,47 @@ body {
   color: var(--ink-soft);
 }
 
+/* Instructions and caveats. Fixed at two lines on the top row so the three canvases
+   start at the same height and their charts line up; clamped rather than allowed to
+   wrap into the chart. */
 .view-sub {
-  margin: 2px 0 10px;
-  font-size: 11px;
+  flex: none;
+  height: var(--sub-h);
+  margin: 0 0 3px;
+  font-size: 10.5px;
+  line-height: var(--line);
   color: var(--ink-soft);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* View D uses its two lines for two different things: the comparison first, then the
+   encoding. Each keeps its own line and is ellipsised on its own. */
+.view-sub.view-sub--split { display: flex; flex-direction: column; }
+.view-sub--split > span {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The timeline spans the full width, so its instructions fit beside the title. */
+.view--c .view-head { justify-content: flex-start; }
+.view--c .view-head .view-sub {
+  height: auto;
+  margin: 0;
+  min-width: 0;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .view-canvas {
-  height: var(--view-h);
+  flex: 1 1 auto;
+  min-height: 0;
   border: 1px solid var(--rule);
   border-radius: 3px;
   display: flex;
@@ -151,30 +242,42 @@ body {
 }
 
 /* Every view carries its own legend (CLAUDE.md sec.2: a missing legend costs 2 points).
-   Reserved here so no view can ship without one. */
+
+   Fixed height, with hidden overflow as a backstop rather than a design: verify.js
+   checks that no legend actually clips in any state, so a legend that outgrows its box
+   fails a check instead of silently losing its last row. */
 .view-legend {
-  min-height: 22px;
-  margin-top: 8px;
+  flex: none;
+  height: var(--legend-h);
+  margin-top: 4px;
   display: flex;
   flex-wrap: wrap;
-  gap: 14px;
+  align-content: flex-start;
+  column-gap: 10px;
+  row-gap: 2px;
   align-items: center;
-  font-size: 11px;
+  font-size: 10.5px;
+  line-height: var(--line);
   color: var(--ink-soft);
+  overflow: hidden;
 }
+
+/* The timeline's legend is a single row: seven types fit across the full width. */
+.view--c .view-legend { height: calc(var(--line) + 2px); }
 
 /* ---------- View A: map, toggle, details ---------- */
 
-.view h2 .toggle {
-  float: right;
+.view-head .toggle {
+  flex: none;
   display: inline-flex;
   gap: 0;
 }
 
 .toggle-button {
   font: inherit;
-  font-size: 11px;
-  padding: 2px 9px;
+  font-size: 10.5px;
+  line-height: 14px;
+  padding: 1px 8px;
   border: 1px solid var(--rule);
   background: var(--surface);
   color: var(--ink-soft);
@@ -256,20 +359,23 @@ path.country:hover { fill-opacity: 0.75; }
   left: 8px;
   bottom: 8px;
   z-index: 2;
-  max-width: 62%;
-  max-height: 46%;
-  padding: 6px 9px;
+  /* Sized against the map canvas, which is now sized from the window. At a laptop's
+     height the canvas is about 275px, and the old 46% cap cut the popup's last lines -
+     which are the "less than expected" sectors, i.e. half of the answer. */
+  max-width: 76%;
+  max-height: 70%;
+  padding: 4px 8px;
   border: 1px solid var(--rule);
   border-radius: 3px;
   /* Nearly opaque, not translucent: coastlines showing through the text would cost
      legibility to save nothing - the popup sits over open ocean either way. */
   background: rgba(255, 255, 255, 0.95);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
-  font-size: 11px;
-  line-height: 1.45;
+  font-size: 10px;
+  line-height: 1.3;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 0;
   overflow: hidden;
 }
 
@@ -278,7 +384,7 @@ path.country:hover { fill-opacity: 0.75; }
    white box over the map whenever it has nothing to say. */
 .map-popup[hidden] { display: none; }
 
-.details strong, .map-popup strong { font-size: 12px; }
+.details strong, .map-popup strong { font-size: 11px; }
 .details .hint, .map-popup .hint { color: var(--ink-soft); font-style: italic; }
 .details .pending, .map-popup .pending { color: var(--pending); }
 
@@ -287,12 +393,12 @@ path.country:hover { fill-opacity: 0.75; }
 .legend-item {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
 }
 
 .legend-swatch {
-  width: 12px;
-  height: 12px;
+  width: 11px;
+  height: 11px;
   border: 1px solid var(--rule);
   border-radius: 2px;
   display: inline-block;
@@ -303,27 +409,32 @@ path.country:hover { fill-opacity: 0.75; }
    reads as a separate group rather than the tail of one scale. */
 .view-legend.is-stacked {
   flex-direction: column;
+  flex-wrap: nowrap;
   align-items: flex-start;
-  gap: 3px;
 }
 
 /* View B carries TWO scales, so its titles stay side by side and each keeps its own
    values underneath. One run of symbols under two inline titles left the reader to work
    out where the colour scale ended and the size scale began. */
-.view-legend.is-grouped { align-items: flex-start; gap: 28px; }
+.view-legend.is-grouped { align-items: flex-start; flex-wrap: nowrap; column-gap: 16px; }
 
 .legend-group {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  row-gap: 2px;
 }
 
 .legend-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 14px;
+  column-gap: 9px;
+  row-gap: 2px;
   align-items: center;
 }
+
+/* View B's intensity classes are single digits, so they sit tighter than the other
+   legends - which is what lets both of its scales share one row at laptop width. */
+.view--b .legend-row { column-gap: 5px; }
 
 /* ---------- View B: t-SNE scatter ---------- */
 
@@ -352,7 +463,6 @@ path.band:hover { fill-opacity: 1; }
 /* The caveat about type occurrences vs incident counts belongs with the legend, where
    a reader looks to decode the bands. */
 .legend-note {
-  flex-basis: 100%;
   font-style: italic;
   color: var(--pending);
 }
@@ -360,14 +470,8 @@ path.band:hover { fill-opacity: 1; }
 /* ---------- View D: contrast panel ---------- */
 
 .panel-header {
-  float: right;
-  font-size: 11px;
-  font-weight: 400;
+  font-weight: 600;
   color: var(--ink);
-  max-width: 330px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .panel-header.is-muted {
@@ -484,3 +588,7 @@ rect.bar.is-unreliable-bar { stroke: #8a8a8a; stroke-width: 0.8; stroke-dasharra
    will answer. Dimmed, because it describes an encoding that is not yet in use - a
    legend at full strength beside an empty chart would imply there is something to read. */
 .legend-item.is-inactive { opacity: 0.5; }
+
+/* View D's legend: the two swatches on the first line, the validity note on the second.
+   The note is forced onto its own line here only - elsewhere a note sits inline. */
+.view--d .legend-note { flex-basis: 100%; }

@@ -219,13 +219,12 @@ const ViewC = (() => {
       .style("background", (d) => PALETTE[d]);
     items.append("span").text((d) => d);
 
-    // The honest caveat, in the view rather than buried in the report. An incident can
-    // carry several types, so the bands sum to about 1.7x the incident count - 2.1x in
-    // 2023 - and the chart shows how often each type occurs, not a partition of
-    // incidents. Without this the y axis would overstate volume by up to 100%.
-    legend.append("span")
-      .attr("class", "legend-note")
-      .text("bands count type occurrences, not incidents: one incident can carry several types");
+    // The caveat that bands count type OCCURRENCES, not incidents, is still on screen -
+    // it is the view's subtitle now, beside the title (index.html). It was said twice,
+    // once there and once here, and the second copy cost the timeline a line of height.
+    // An incident can carry several types, so the bands sum to about 1.7x the incident
+    // count - 2.1x in 2023 - and without the caveat the y axis would overstate volume
+    // by up to 100%.
   }
 
   return { init, applySelection };

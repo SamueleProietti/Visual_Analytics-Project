@@ -177,6 +177,26 @@ async function verifyLegends() {
     check(`${label} · no view scrolls`,
       ![...document.querySelectorAll(".view-canvas")].some(
         (c) => c.scrollHeight > c.clientHeight || c.scrollWidth > c.clientWidth));
+
+    // Legends now have a fixed height with hidden overflow. That overflow is a backstop,
+    // not a design: if a legend grows in some state - a longer residual note, a narrower
+    // window - its last row would vanish without anything else noticing. So it is
+    // measured here, in every state, instead of trusted.
+    const clipped = ["a", "b", "c", "d"].filter((v) => {
+      const el = document.getElementById(`view-${v}-legend`);
+      return el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1;
+    });
+    check(`${label} · no legend is clipped`, clipped.length === 0,
+      clipped.length ? `clipped: ${clipped.map((v) => v.toUpperCase()).join(", ")}` : "");
+
+    // The point of the layout: all four coordinated views on one screen. Only asserted
+    // at a size the layout supports; below it the page is meant to scroll.
+    if (innerWidth >= 1100 && innerHeight >= 560) {
+      const page = document.documentElement;
+      check(`${label} · the dashboard fits the window without a page scroll`,
+        page.scrollHeight <= innerHeight + 1,
+        `page ${page.scrollHeight}px, window ${innerHeight}px`);
+    }
   };
 
   console.log("%c--- legends and fixed size, in every state ---", "font-weight:bold");
@@ -191,9 +211,22 @@ async function verifyLegends() {
   await wait(2000);
   assertAll("selection");
 
+  // The details popup has a capped height inside a map canvas that is itself sized from
+  // the window. At laptop height the cap once cut its last lines - the "less than
+  // expected" sectors - with nothing on screen to show text was missing.
+  const popupWhole = (label) => {
+    const pop = document.getElementById("view-a-details");
+    if (pop.hidden) return;
+    check(`${label} · the country popup shows all of its lines`,
+      pop.scrollHeight <= pop.clientHeight + 1,
+      `content ${pop.scrollHeight}px, box ${pop.clientHeight}px`);
+  };
+  popupWhole("selection");
+
   SelectionStore.setYearRange([2022, 2024]);
   await wait(2000);
   assertAll("residual");
+  popupWhole("residual");
 
   SelectionStore.clear();
   await wait(700);

@@ -26,9 +26,21 @@ const ViewD = (() => {
   // colour-vision deficiencies, unlike red/green.
   const OVER = "#b2182b";    // more frequent in the selection than in the comparison
   const UNDER = "#2166ac";   // less frequent
-  const MAX_BARS = 9;        // fits the fixed-height canvas without scrolling
+  // How many features to show is decided by the panel's height, not fixed. The canvas
+  // is sized from the window now: at a laptop's height nine bars is what fits, and on a
+  // 1080p screen a fixed nine drew bars twice as thick as they needed to be while
+  // hiding the next five features. One band per 26px keeps bars comfortably readable.
+  const BAND_PX = 26;
+  const MIN_BARS = 6;
+  const MAX_BARS = 14;
 
+  // The label gutter never takes more than 45% of the panel. At 168px fixed it left a
+  // narrow panel with almost no room for the bars, which are the actual answer.
   const MARGIN = { top: 6, right: 34, bottom: 18, left: 168 };
+  const GUTTER_SHARE = 0.45;
+
+  // Explains the faded, dashed bars - which the legend did not cover at all before.
+  const VALIDITY_NOTE = "faded, dashed bars fail the validity test";
 
   function setHeader(text, muted = false) {
     d3.select("#view-d-header")
@@ -56,8 +68,9 @@ const ViewD = (() => {
       item.append("span").attr("class", "legend-swatch").style("background", colour);
       item.append("span").text(text);
     }
-    legend.append("span").attr("class", "legend-note")
-      .text("bar length = difference in percentage points · order = |z|, i.e. reliability");
+    // The encoding itself ("bar length = difference · order = |z|") is the panel's
+    // subtitle, so it is not repeated here; the legend keeps what only it explains.
+    legend.append("span").attr("class", "legend-note").text(VALIDITY_NOTE);
   }
 
   /**
@@ -78,17 +91,19 @@ const ViewD = (() => {
     // computed where the normal approximation does not hold can be arbitrarily large.
     // Unreliable features stay in the list, flagged; they just do not take the
     // positions the eye reads first.
-    const ranked = [...items]
-      .sort((a, b) => (a.reliable === false) - (b.reliable === false)
-        || Math.abs(b.z) - Math.abs(a.z))
-      .slice(0, MAX_BARS);
-
     const host = d3.select("#view-d-canvas");
     host.html("");
     const width = host.node().clientWidth;
     const height = host.node().clientHeight;
-    const innerW = width - MARGIN.left - MARGIN.right;
+    const left = Math.min(MARGIN.left, Math.round(width * GUTTER_SHARE));
+    const innerW = width - left - MARGIN.right;
     const innerH = height - MARGIN.top - MARGIN.bottom;
+
+    const bars = Math.max(MIN_BARS, Math.min(MAX_BARS, Math.floor(innerH / BAND_PX)));
+    const ranked = [...items]
+      .sort((a, b) => (a.reliable === false) - (b.reliable === false)
+        || Math.abs(b.z) - Math.abs(a.z))
+      .slice(0, bars);
 
     // Symmetric domain so that equal magnitudes in either direction draw equal bars -
     // an asymmetric axis would make one side look systematically stronger.
@@ -100,7 +115,7 @@ const ViewD = (() => {
     const svg = host.append("svg").attr("width", width).attr("height", height)
       .attr("role", "img").attr("aria-label", "Contrast panel: " + mode);
     const plot = svg.append("g")
-      .attr("transform", `translate(${MARGIN.left},${MARGIN.top})`);
+      .attr("transform", `translate(${left},${MARGIN.top})`);
 
     plot.selectAll("rect.bar").data(ranked).join("rect")
       .attr("class", "bar")
@@ -117,11 +132,26 @@ const ViewD = (() => {
         + `z = ${d.z.toFixed(2)}`
         + (d.nSelection != null ? `\nn = ${d.nSelection} in selection` : ""));
 
-    plot.selectAll("text.bar-label").data(ranked).join("text")
+    // Labels are shortened to fit the gutter, with the full text in a tooltip. They used
+    // to be drawn at full length and run off the left edge of the canvas, where the
+    // clipping cut the START of the label - the block name ("impact:", "issue:") that
+    // says what kind of feature it is.
+    const labels = plot.selectAll("text.bar-label").data(ranked).join("text")
       .attr("class", "bar-label")
       .attr("x", -6).attr("y", (d) => y(d.label) + y.bandwidth() / 2)
       .attr("dy", "0.35em").attr("text-anchor", "end")
       .text((d) => d.label);
+    labels.each(function fit(d) {
+      const node = this;
+      const room = left - 10;
+      if (node.getComputedTextLength() <= room) return;
+      let text = d.label;
+      while (text.length > 4 && node.getComputedTextLength() > room) {
+        text = text.slice(0, -2);
+        node.textContent = text + "…";
+      }
+    });
+    labels.append("title").text((d) => d.label);
 
     // z printed next to each bar: the ranking key must be legible, not just implied by
     // position, or the reader cannot tell a solid finding from a marginal one.
@@ -152,9 +182,7 @@ const ViewD = (() => {
       item.append("span").attr("class", "legend-swatch").style("background", colour);
       item.append("span").text(text);
     }
-    legend.append("span").attr("class", "legend-note")
-      .text(note || "bar length = difference in percentage points · "
-        + "order = |z|, i.e. reliability, not size");
+    legend.append("span").attr("class", "legend-note").text(note || VALIDITY_NOTE);
   }
 
   /**
@@ -243,8 +271,7 @@ const ViewD = (() => {
         reliable: f.reliable,
         isNullish: f.is_nullish,
       })), snapshot.mode,
-        `bar length = difference in percentage points · order = |z| (reliability) · `
-        + `${result.n_reliable} of ${result.n_features} features pass the validity test`);
+        `${VALIDITY_NOTE} · ${result.n_reliable} of ${result.n_features} pass`);
     } catch (error) {
       if (token !== pending) return;
       showEmpty(`contrast failed: ${error.message}`);
