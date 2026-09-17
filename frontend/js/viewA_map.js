@@ -100,6 +100,36 @@ const ViewA = (() => {
     panned: false,
   };
 
+  /* Latitudes kept in view when the canvas is a different shape from the world.
+   *
+   * The north is cut at 84 because northern Greenland and the Russian Arctic coast carry
+   * incidents in the corpus and a choropleth that hides a country cannot colour it. The
+   * south is cut at -58, which drops Antarctica: EuRepoC records no receiver there, so
+   * it is the one large area whose loss costs nothing. */
+  const LAT_TOP = 84;
+  const LAT_BOTTOM = -58;
+
+  /** Scale the map to COVER its box, cropping, rather than fit inside it and letterbox.
+   *
+   * fitSize() does the opposite: it shrinks the world until it fits, which on a canvas
+   * wider than the map's own ~2:1 left a third of View A as empty background - the
+   * largest single piece of wasted space in the interface. Taking the LARGER of the two
+   * scale factors fills the box and lets the clip take whatever falls outside.
+   */
+  function coverProjection(width, height) {
+    const unit = d3.geoEqualEarth().scale(1).translate([0, 0]);
+    const left = unit([-180, 0])[0];
+    const right = unit([180, 0])[0];
+    const top = unit([0, LAT_TOP])[1];
+    const bottom = unit([0, LAT_BOTTOM])[1];
+
+    const k = Math.max(width / (right - left), height / (bottom - top));
+    return d3.geoEqualEarth().scale(k).translate([
+      width / 2 - k * (left + right) / 2,
+      height / 2 - k * (top + bottom) / 2,
+    ]);
+  }
+
   /** Load the topojson-client helper, which D3 does not bundle. */
   function loadTopojson() {
     if (window.topojson) return Promise.resolve();
@@ -518,7 +548,7 @@ const ViewA = (() => {
     // Equal Earth is an equal-area projection. A choropleth encodes a quantity by
     // filling area, so a projection that inflates high latitudes - Mercator above all -
     // would make Russia and Canada shout regardless of their values.
-    const projection = d3.geoEqualEarth().fitSize([width, height - 6], { type: "Sphere" });
+    const projection = coverProjection(width, height);
     state.path = d3.geoPath(projection);
 
     const svg = host.append("svg")

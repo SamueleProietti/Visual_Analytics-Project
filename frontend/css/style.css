@@ -30,8 +30,8 @@
      The fixed parts of each view are therefore given fixed heights, and the chart takes
      whatever is left. --line is one line of the 10.5px secondary text. */
   --line: 13px;
-  --gap: 6px;
-  --head-h: 20px;                               /* view title row */
+  --gap: 4px;
+  --head-h: 18px;                               /* view title row */
   --sub-h: calc(2 * var(--line));               /* instructions: two lines, top row */
   --legend-h: calc(2 * var(--line) + 4px);      /* legend: title + values, or two rows */
 
@@ -45,7 +45,7 @@
 
 body {
   margin: 0;
-  padding: var(--gap) 10px;
+  padding: var(--gap) var(--gap);
   background: var(--surface-sunken);
   color: var(--ink);
   font: 14px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -159,8 +159,11 @@ body {
   flex-direction: column;
   background: var(--surface);
   border: 1px solid var(--rule);
-  border-radius: 4px;
-  padding: 4px 9px 5px;
+  border-radius: 3px;
+  /* One border, not two. The card used to be framed and the chart inside it framed
+     again, which spent four rules and about 8px per view on drawing the same edge
+     twice. The card keeps the border; the canvas below drops it. */
+  padding: 3px 6px 4px;
 }
 
 .view-head {
@@ -192,7 +195,7 @@ body {
 .view-sub {
   flex: none;
   height: var(--sub-h);
-  margin: 0 0 3px;
+  margin: 0 0 2px;
   font-size: 10.5px;
   line-height: var(--line);
   color: var(--ink-soft);
@@ -227,12 +230,13 @@ body {
 .view-canvas {
   flex: 1 1 auto;
   min-height: 0;
-  border: 1px solid var(--rule);
-  border-radius: 3px;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;          /* fixed-size views: clip rather than scroll */
+  /* Clipping is now load-bearing, not only a guard: the map is scaled to COVER this
+     box, so what falls outside is meant to be cut (CLAUDE.md sec.2 still forbids a view
+     that scrolls). */
+  overflow: hidden;
 }
 
 .placeholder {
@@ -249,7 +253,7 @@ body {
 .view-legend {
   flex: none;
   height: var(--legend-h);
-  margin-top: 4px;
+  margin-top: 3px;
   display: flex;
   flex-wrap: wrap;
   align-content: flex-start;

@@ -620,4 +620,29 @@ stato reale senza dover rileggere tutta la chat.
       caricamento. Ridimensionare la finestra dopo — incluso passare a schermo intero con
       F11 durante la demo — non le ridisegna. Da risolvere prima della presentazione.
 
+- [x] Mappa a pieno riquadro, cornici ridotte — 2026-09-17
+      **AS index invariato: 61.452.** 43/43 visivo, 23/23 trigger, 30/30 legende, 20/20 runtime.
+      **La mappa COPRE il suo riquadro invece di starci dentro.** `fitSize()` rimpiccioliva
+      il mondo finché ci stava, lasciando su un canvas più largo del ~2:1 della proiezione
+      un terzo di View A come sfondo vuoto — il singolo spreco più grande dell'interfaccia.
+      Ora si prende il fattore di scala *maggiore* fra i due e il ritaglio fa il resto.
+      Tagli scelti, non subiti: a nord **84°**, perché la Groenlandia settentrionale e la
+      costa artica russa hanno incidenti nel corpus e una coropleta che nasconde un paese
+      non può colorarlo; a sud **−58°**, che elimina l'Antartide — l'unica area grande la
+      cui perdita non costa nulla, visto che EuRepoC non vi registra alcun receiver.
+      Misurato a 1265×629: sfera 654×318 su canvas 545×286, ritagliata ai lati.
+      **Un bordo invece di due.** La card era incorniciata e il grafico dentro di lei
+      incorniciato di nuovo: due volte la stessa linea. Tolto il bordo del canvas, ridotti
+      i padding e il gap da 6 a 4px. I canvas crescono: mappa 532×275 → **545×286**,
+      timeline 1226×167 → **1244×175**, e View D passa da 9 a **10 barre**.
+      **Perché non il 2×2 del progetto di riferimento.** Misurato applicando le griglie
+      alternative alla pagina reale, a 1265×629:
+      · 3+1 (attuale): mappa 545×286, t-SNE 310×286, contrasto 354×286 (10 barre), timeline 1244×175
+      · 2×2 uguali: tutte 613×209 — ogni grafico perde **77px di altezza (−27%)**, il
+        t-SNE spreca **404px** di larghezza (la nuvola è quadrata), View D scende a 7 barre
+      · 2×2 con colonne 1.55/1: mappa 748×209, t-SNE 478×209 (269px sprecati), 7 barre
+      La differenza non è di gusto ma di altezza disponibile: il progetto di riferimento
+      gira su una finestra alta ~1010px, dove un 2×2 dà ~400px per grafico; qui la finestra
+      è alta 629px e ne dà 209. Scelta lasciata aperta: sono tre righe di CSS.
+
 - [ ] Fase 17 — completata il: ___
