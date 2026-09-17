@@ -100,31 +100,67 @@ const ViewA = (() => {
     panned: false,
   };
 
-  /* Latitudes kept in view when the canvas is a different shape from the world.
-   *
-   * The north is cut at 84 because northern Greenland and the Russian Arctic coast carry
-   * incidents in the corpus and a choropleth that hides a country cannot colour it. The
-   * south is cut at -58, which drops Antarctica: EuRepoC records no receiver there, so
-   * it is the one large area whose loss costs nothing. */
-  const LAT_TOP = 84;
-  const LAT_BOTTOM = -58;
+  const SPHERE = { type: "Sphere" };
 
-  /** Scale the map to COVER its box, cropping, rather than fit inside it and letterbox.
+  /* The latitude band the map keeps on screen. Antarctica is deliberately outside it. */
+  const LAT_TOP = 90;
+  const LAT_BOTTOM = -60;
+
+  /* Standard parallels the projection is allowed to use. Outside this range a
+   * cylindrical equal-area projection stops looking like a world map: towards 0 the
+   * poles smear into thin strips, past ~55 the tropics stretch vertically. Beyond the
+   * range the map covers the canvas and is cropped instead. */
+  const PARALLEL_RANGE = [10, 52];
+
+  /** A rectangular, equal-area projection fitted exactly to the canvas.
    *
-   * fitSize() does the opposite: it shrinks the world until it fits, which on a canvas
-   * wider than the map's own ~2:1 left a third of View A as empty background - the
-   * largest single piece of wasted space in the interface. Taking the LARGER of the two
-   * scale factors fills the box and lets the clip take whatever falls outside.
+   * Equal Earth is a fine projection and the wrong one for a rectangle: its outline is
+   * an oval, so filling a box with it always leaves the four corners empty. No amount of
+   * cropping removes that - the curve runs the whole length of the edge.
+   *
+   * A CYLINDRICAL equal-area projection is rectangular, and equal-area is the property a
+   * choropleth cannot give up: colour encodes a quantity by filling a shape, so a
+   * projection that inflates the north - equirectangular doubles it at 60 degrees,
+   * Mercator quadruples it - would let Canada and Russia shout regardless of their
+   * values (VA_03_1 on area judgement).
+   *
+   * Its aspect ratio is exactly pi * cos^2(standard parallel), so the parallel can be
+   * SOLVED for the canvas the view happens to have: the world then fills the box with
+   * square corners and nothing cropped. At this laptop's proportions it lands on about
+   * 37 degrees - the Hobo-Dyer projection. d3's core has no cylindrical-equal-area
+   * constructor, but geoConicEqualArea degenerates into one when its two parallels are
+   * opposite, so this needs no extra dependency.
    */
   function coverProjection(width, height) {
-    const unit = d3.geoEqualEarth().scale(1).translate([0, 0]);
-    const left = unit([-180, 0])[0];
-    const right = unit([180, 0])[0];
-    const top = unit([0, LAT_TOP])[1];
-    const bottom = unit([0, LAT_BOTTOM])[1];
+    const radians = (degrees) => degrees * Math.PI / 180;
+
+    // The band that has to be on screen. The north keeps everything - Greenland and the
+    // Russian Arctic coast carry incidents, and a choropleth cannot colour a country it
+    // hides. The south stops at -60, which drops Antarctica: EuRepoC records no receiver
+    // there, so it is the one large area whose loss costs nothing, and the height it
+    // frees goes to the latitudes where the data actually is.
+    const span = Math.sin(radians(LAT_TOP)) - Math.sin(radians(LAT_BOTTOM));
+
+    // A cylindrical equal-area band is 2*pi*cos^2(p) / span wide for every 1 tall, so
+    // the standard parallel can be solved for this canvas. Clamped: outside the range a
+    // cylindrical projection stops looking like a world map, and there the map covers
+    // the box and is cropped instead.
+    const widest = 2 * Math.PI / span;
+    const target = Math.min(width / height, widest - 1e-6);
+    const solved = Math.acos(Math.sqrt(target * span / (2 * Math.PI))) * 180 / Math.PI;
+    const parallel = Math.min(Math.max(solved, PARALLEL_RANGE[0]), PARALLEL_RANGE[1]);
+
+    const projection = d3.geoConicEqualArea()
+      .parallels([parallel, -parallel]).scale(1).translate([0, 0]);
+
+    // Rectangular, so the extent is four numbers rather than a path's bounding box.
+    const left = projection([-180, 0])[0];
+    const right = projection([180, 0])[0];
+    const top = projection([0, LAT_TOP])[1];
+    const bottom = projection([0, LAT_BOTTOM])[1];
 
     const k = Math.max(width / (right - left), height / (bottom - top));
-    return d3.geoEqualEarth().scale(k).translate([
+    return projection.scale(k).translate([
       width / 2 - k * (left + right) / 2,
       height / 2 - k * (top + bottom) / 2,
     ]);

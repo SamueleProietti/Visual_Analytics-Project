@@ -645,4 +645,28 @@ stato reale senza dover rileggere tutta la chat.
       gira su una finestra alta ~1010px, dove un 2×2 dà ~400px per grafico; qui la finestra
       è alta 629px e ne dà 209. Scelta lasciata aperta: sono tre righe di CSS.
 
+- [x] Mappa rettangolare, proiezione cilindrica equivalente — 2026-09-17
+      **AS index invariato: 61.452.** 43/43, 23/23, 30/30, 20/20.
+      **Il bordo curvo non era un difetto del ritaglio: è la forma di Equal Earth.** Il suo
+      contorno è un ovale, quindi riempire un rettangolo lascia *sempre* i quattro angoli
+      vuoti, e nessun ritaglio lo elimina — la curva corre lungo tutto il bordo.
+      **Serviva una proiezione rettangolare senza perdere l'equivalenza delle aree,** che
+      per una coropleta non è negoziabile: il colore codifica una quantità riempiendo una
+      forma, quindi una proiezione che gonfia il nord (l'equirettangolare lo raddoppia a
+      60°, Mercatore lo quadruplica) farebbe urlare Canada e Russia a prescindere dai
+      valori. La soluzione è una **cilindrica equivalente**, rettangolare *ed* equivalente.
+      **Il parallelo standard è risolto sul riquadro, non scelto a caso.** L'aspetto di una
+      cilindrica equivalente è esattamente `2π·cos²(p) / span`, quindi `p` si ricava dalle
+      proporzioni del canvas: il mondo riempie la scatola con angoli quadri e **senza
+      ritagliare longitudine**. Alle proporzioni del portatile cade intorno ai 37°, cioè la
+      proiezione **Hobo-Dyer**. Nessuna dipendenza nuova: `d3.geoConicEqualArea` degenera in
+      una cilindrica quando i due paralleli sono opposti.
+      **Antartide fuori per scelta** (banda 90°..−60°): EuRepoC non vi registra alcun
+      receiver, ed è l'unica area grande la cui perdita non costa nulla; l'altezza liberata
+      va alle latitudini dove i dati stanno davvero.
+      Verificato a due proporzioni: a 1265×629 sfera 545×306,5 su canvas 545×286
+      (longitudine completa, taglio solo in basso); a 1905×937 sfera 831×514,5 su canvas
+      831×480. In entrambi i casi Nuova Zelanda, Figi, Russia e Groenlandia sono dentro,
+      l'Antartide fuori.
+
 - [ ] Fase 17 — completata il: ___
