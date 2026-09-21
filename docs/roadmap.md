@@ -669,4 +669,32 @@ stato reale senza dover rileggere tutta la chat.
       831×480. In entrambi i casi Nuova Zelanda, Figi, Russia e Groenlandia sono dentro,
       l'Antartide fuori.
 
+- [x] Ri-proiezione solo col lazo, ritorno al 2×2, mappa equirettangolare — 2026-09-21
+      **AS index invariato: 61.452.** `05` da 23 a **24/24**, `verifyTriggers()` da 20 a
+      **21/21**, 43/43 visivo, 30/30 legende.
+      **Bug: un click in View B ri-proiettava la selezione di un paese.** Un click semplice
+      sul piano chiama `setLasso(null)`, che pubblica con origine «projection»; con un paese
+      ancora selezionato la selezione non è vuota, e il gate — che guardava solo *da dove*
+      arrivava la notifica — lanciava il refit t-SNE sugli incidenti del paese. Due
+      correzioni: il gate ora richiede che **un lazo esista**, e un click senza lazo attivo
+      non pubblica proprio nulla (una notifica che non cambia stato sveglia comunque tutti i
+      subscriber). Il controllo statico estrae ora la condizione dell'`if` che protegge la
+      chiamata e verifica entrambe le parti; `verifyTriggers()` riproduce il caso
+      segnalato: paese selezionato, click in B, nessun banner locale.
+      **Ritorno al 2×2** (A B / D C, come nel mockup della proposta), per scelta: le
+      quattro view uguali si leggono come quattro domande di pari peso. Il costo misurato
+      prima resta vero (−27% di altezza per grafico a 629px); la mappa non ha più bisogno
+      di una colonna larga, perché ora riempie qualunque riquadro riceva.
+      **Mappa equirettangolare, allontanandosi di proposito dall'equivalenza delle aree.**
+      Argomento dell'utente, e giusto: in qualunque mappa equivalente l'Africa riceve la
+      quota di pixel che le spetta per superficie — la più grande — pur portando il minor
+      numero di incidenti, mentre l'Europa, dove il corpus è più denso, viene schiacciata
+      fino a rendere i suoi piccoli stati difficili da vedere e da **cliccare**, in una view
+      il cui compito è essere cliccata. Proporzioni della mappa di riferimento; preferita a
+      Mercatore perché quello gonfia le aree del doppio a ogni latitudine (1/cos² contro
+      1/cos). **Costo dichiarato:** area gonfiata di 1,6× a 50°, 2× a 60°, ~3× nell'Artico —
+      Russia e Canada guadagnano peso visivo non meritato. Misurato sul canvas reale
+      (613×209): rapporto Europa/Africa in pixel da **0,167 a 0,268** (+60%), Europa da
+      1.349 a 1.991 px², Africa −8%, Italia +19%, Belgio +38%. Banda 82°N…56°S.
+
 - [ ] Fase 17 — completata il: ___

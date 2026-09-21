@@ -236,7 +236,10 @@ const ViewB = (() => {
       // Fewer than three vertices is a click, not a lasso: treat it as "clear". This
       // stays available in the local layout - it is the way back to the global one.
       if (state.vertices.length < 3) {
-        SelectionStore.setLasso(null);
+        // Only a lasso can be cleared from here. With none active the click publishes
+        // nothing at all: a notification that changes no state still wakes every
+        // subscriber, and that is how a click once refitted a country selection.
+        if (SelectionStore.getState().lasso) SelectionStore.setLasso(null);
         return;
       }
 

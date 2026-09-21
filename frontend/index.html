@@ -6,7 +6,7 @@
   <title>Threat-Shape</title>
   <!-- ?v= is bumped when an asset changes, so a browser holding an old copy is
        forced to refetch instead of silently running stale code. -->
-  <link rel="stylesheet" href="css/style.css?v=45">
+  <link rel="stylesheet" href="css/style.css?v=46">
 </head>
 <body>
 
@@ -24,12 +24,7 @@
        four views fit one screen with no page scroll - the way it has to be seen during
        the live demo, where coordinated views that scroll apart are not coordinated.
 
-       Three views across the top, the timeline full width underneath. Chosen from each
-       view's natural shape rather than kept as the 2x2 of the draft mockup: the map
-       wants about 2:1, the t-SNE plane is roughly square, the contrast panel needs a
-       label gutter, and a timeline is the one chart that reads best as a wide, short
-       strip. In a 2x2 at a laptop's height every one of them was height-starved while
-       the t-SNE plane and the map wasted half their width.
+       Two by two, as in the draft mockup: A B on top, D C underneath.
 
        Views never scroll (CLAUDE.md sec.2). Titles, subtitles and legends have fixed
        heights, so no state of a legend can steal height from its chart after the chart
@@ -88,8 +83,8 @@
     <section class="view view--c" id="view-c">
       <div class="view-head">
         <h2>View C <span class="view-kind">Stacked area timeline</span></h2>
-        <p class="view-sub">drag across the years to brush · bands count type occurrences, not incidents: one incident can carry several types</p>
       </div>
+      <p class="view-sub">drag across the years to brush · bands count type occurrences, not incidents: one incident can carry several types</p>
       <div class="view-canvas" id="view-c-canvas">
         <span class="placeholder">loading timeline…</span>
       </div>
@@ -101,14 +96,14 @@
   </div><!-- /.app-shell -->
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
-  <script src="js/selectionStore.js?v=45"></script>
-  <script src="js/viewA_map.js?v=45"></script>
-  <script src="js/viewB_scatter.js?v=45"></script>
-  <script src="js/viewC_timeline.js?v=45"></script>
-  <script src="js/viewD_contrast.js?v=45"></script>
-  <script src="js/main.js?v=45"></script>
+  <script src="js/selectionStore.js?v=46"></script>
+  <script src="js/viewA_map.js?v=46"></script>
+  <script src="js/viewB_scatter.js?v=46"></script>
+  <script src="js/viewC_timeline.js?v=46"></script>
+  <script src="js/viewD_contrast.js?v=46"></script>
+  <script src="js/main.js?v=46"></script>
   <!-- Verification tool, not application code. Kept separate so the trigger
        audit can prove that only three things write to the selection store. -->
-  <script src="js/verify.js?v=45"></script>
+  <script src="js/verify.js?v=46"></script>
 </body>
 </html>

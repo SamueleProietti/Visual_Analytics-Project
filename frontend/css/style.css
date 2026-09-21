@@ -103,22 +103,23 @@ body {
 
 /* ---------- view grid ---------- */
 
-/* Three views across the top, the timeline full width underneath.
+/* Two by two, as in the draft mockup: A B on top, D C underneath.
 
-   Column widths follow what each chart needs at the top row's height rather than being
-   equal: the map is about 2:1 (Equal Earth), the t-SNE plane roughly square, and the
-   contrast panel needs a label gutter plus room for bars. The bottom row is shorter
-   because a timeline reads well as a strip, and every pixel it gives up goes to the
-   three charts that need height. */
+   This was briefly three across and the timeline full width, which measured better on
+   paper - the 2x2 gives each chart about 27% less height at a laptop's 629px and leaves
+   the t-SNE plane, which is roughly square, with spare width either side. The 2x2 was
+   chosen back anyway: every view the same size reads as four equal questions rather
+   than three plus an afterthought, it is the arrangement the approved proposal shows,
+   and the map no longer needs a wide column now that it fills whatever box it gets. */
 .view-grid {
   flex: 1 1 auto;
   min-height: var(--grid-min-h);
   display: grid;
-  grid-template-columns: minmax(0, 1.9fr) minmax(0, 1.1fr) minmax(0, 1.25fr);
-  grid-template-rows: minmax(0, 1.7fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   grid-template-areas:
-    "a b d"
-    "c c c";
+    "a b"
+    "d c";
   gap: var(--gap);
 }
 
@@ -127,24 +128,13 @@ body {
 .view--d { grid-area: d; }
 .view--c { grid-area: c; }
 
-/* Narrower than a laptop: three columns would make the charts unreadable, so fall back
-   to two and let the page scroll - the views keep a usable size instead of shrinking. */
-@media (max-width: 1099px) {
+/* Narrower than a tablet: one column, and the page scrolls - the views keep a readable
+   size instead of shrinking with the window. */
+@media (max-width: 759px) {
   .app-shell { height: auto; }
   .view-grid {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: 380px 360px 250px;
-    grid-template-areas:
-      "a a"
-      "b d"
-      "c c";
-  }
-}
-
-@media (max-width: 759px) {
-  .view-grid {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: 340px 360px 360px 250px;
+    grid-template-rows: 340px 360px 360px 260px;
     grid-template-areas: "a" "b" "d" "c";
   }
 }
@@ -215,18 +205,6 @@ body {
   text-overflow: ellipsis;
 }
 
-/* The timeline spans the full width, so its instructions fit beside the title. */
-.view--c .view-head { justify-content: flex-start; }
-.view--c .view-head .view-sub {
-  height: auto;
-  margin: 0;
-  min-width: 0;
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .view-canvas {
   flex: 1 1 auto;
   min-height: 0;
@@ -265,9 +243,6 @@ body {
   color: var(--ink-soft);
   overflow: hidden;
 }
-
-/* The timeline's legend is a single row: seven types fit across the full width. */
-.view--c .view-legend { height: calc(var(--line) + 2px); }
 
 /* ---------- View A: map, toggle, details ---------- */
 

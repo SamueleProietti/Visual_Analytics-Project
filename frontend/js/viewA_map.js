@@ -100,58 +100,35 @@ const ViewA = (() => {
     panned: false,
   };
 
-  const SPHERE = { type: "Sphere" };
+  /* The latitude band the map keeps on screen. The north keeps Svalbard and the
+   * Russian Arctic coast; the south stops just below Cape Horn, which drops Antarctica -
+   * EuRepoC records no receiver there, so it is the one large area whose loss costs
+   * nothing. If the canvas is wider than this band the band is cropped evenly at both
+   * ends; if narrower, longitude is. */
+  const LAT_TOP = 82;
+  const LAT_BOTTOM = -56;
 
-  /* The latitude band the map keeps on screen. Antarctica is deliberately outside it. */
-  const LAT_TOP = 90;
-  const LAT_BOTTOM = -60;
-
-  /* Standard parallels the projection is allowed to use. Outside this range a
-   * cylindrical equal-area projection stops looking like a world map: towards 0 the
-   * poles smear into thin strips, past ~55 the tropics stretch vertically. Beyond the
-   * range the map covers the canvas and is cropped instead. */
-  const PARALLEL_RANGE = [10, 52];
-
-  /** A rectangular, equal-area projection fitted exactly to the canvas.
+  /** Equirectangular, scaled to COVER the canvas: a rectangle, square corners, no oval.
    *
-   * Equal Earth is a fine projection and the wrong one for a rectangle: its outline is
-   * an oval, so filling a box with it always leaves the four corners empty. No amount of
-   * cropping removes that - the curve runs the whole length of the edge.
+   * This is a deliberate step away from an equal-area projection, and it has a cost
+   * that has to be stated rather than hidden. Equirectangular inflates area by
+   * 1/cos(latitude): 1.6x at Europe's 50 degrees, 2x at 60, about 3x in the Arctic. A
+   * choropleth colours area, so Russia and Canada gain visual weight they did not earn.
    *
-   * A CYLINDRICAL equal-area projection is rectangular, and equal-area is the property a
-   * choropleth cannot give up: colour encodes a quantity by filling a shape, so a
-   * projection that inflates the north - equirectangular doubles it at 60 degrees,
-   * Mercator quadruples it - would let Canada and Russia shout regardless of their
-   * values (VA_03_1 on area judgement).
+   * The equal-area versions - Equal Earth, then a cylindrical equal-area - were honest
+   * about area and wrong for this tool in two ways that only showed on screen. Equal
+   * Earth's outline is an oval, so it cannot fill a rectangle without empty corners. And
+   * in any equal-area world map Africa takes its true share of the pixels - the largest
+   * - while carrying the fewest incidents, and Europe, where the corpus is densest, is
+   * squashed until its small states are hard to see and harder to CLICK. In a view whose
+   * whole job is to be clicked, that is the worse distortion.
    *
-   * Its aspect ratio is exactly pi * cos^2(standard parallel), so the parallel can be
-   * SOLVED for the canvas the view happens to have: the world then fills the box with
-   * square corners and nothing cropped. At this laptop's proportions it lands on about
-   * 37 degrees - the Hobo-Dyer projection. d3's core has no cylindrical-equal-area
-   * constructor, but geoConicEqualArea degenerates into one when its two parallels are
-   * opposite, so this needs no extra dependency.
+   * Equirectangular is the proportions of the reference dashboard, and the mildest of
+   * the familiar rectangular options: Mercator inflates by 1/cos^2, twice as much at every
+   * latitude, and would make Greenland the size of Africa.
    */
   function coverProjection(width, height) {
-    const radians = (degrees) => degrees * Math.PI / 180;
-
-    // The band that has to be on screen. The north keeps everything - Greenland and the
-    // Russian Arctic coast carry incidents, and a choropleth cannot colour a country it
-    // hides. The south stops at -60, which drops Antarctica: EuRepoC records no receiver
-    // there, so it is the one large area whose loss costs nothing, and the height it
-    // frees goes to the latitudes where the data actually is.
-    const span = Math.sin(radians(LAT_TOP)) - Math.sin(radians(LAT_BOTTOM));
-
-    // A cylindrical equal-area band is 2*pi*cos^2(p) / span wide for every 1 tall, so
-    // the standard parallel can be solved for this canvas. Clamped: outside the range a
-    // cylindrical projection stops looking like a world map, and there the map covers
-    // the box and is cropped instead.
-    const widest = 2 * Math.PI / span;
-    const target = Math.min(width / height, widest - 1e-6);
-    const solved = Math.acos(Math.sqrt(target * span / (2 * Math.PI))) * 180 / Math.PI;
-    const parallel = Math.min(Math.max(solved, PARALLEL_RANGE[0]), PARALLEL_RANGE[1]);
-
-    const projection = d3.geoConicEqualArea()
-      .parallels([parallel, -parallel]).scale(1).translate([0, 0]);
+    const projection = d3.geoEquirectangular().scale(1).translate([0, 0]);
 
     // Rectangular, so the extent is four numbers rather than a path's bounding box.
     const left = projection([-180, 0])[0];
@@ -159,6 +136,7 @@ const ViewA = (() => {
     const top = projection([0, LAT_TOP])[1];
     const bottom = projection([0, LAT_BOTTOM])[1];
 
+    // The LARGER of the two factors: cover the box and crop, never letterbox inside it.
     const k = Math.max(width / (right - left), height / (bottom - top));
     return projection.scale(k).translate([
       width / 2 - k * (left + right) / 2,
@@ -581,9 +559,8 @@ const ViewA = (() => {
     const width = host.node().clientWidth;
     const height = host.node().clientHeight;
 
-    // Equal Earth is an equal-area projection. A choropleth encodes a quantity by
-    // filling area, so a projection that inflates high latitudes - Mercator above all -
-    // would make Russia and Canada shout regardless of their values.
+    // Equirectangular, covering the canvas - see coverProjection() for why this is not
+    // an equal-area projection, and what that costs.
     const projection = coverProjection(width, height);
     state.path = d3.geoPath(projection);
 

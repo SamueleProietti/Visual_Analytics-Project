@@ -172,8 +172,18 @@ def check_analytics_reachability():
     check("all four views react through the store subscription", len(calls) == 4,
           f"{len(calls)} calls found")
 
+    # Two conditions, both required. The origin alone once let a plain click in View B
+    # (which publishes setLasso(null) from "projection") refit a COUNTRY selection.
+    # The condition of the `if` that guards the call: from the last "if (" before
+    # ViewB.reproject( up to the brace that opens its body. Not a [^)]* regex - the
+    # condition itself contains a call, getState(), and would stop it early.
+    call = main.find("ViewB.reproject(")
+    opening = main.rfind("if (", 0, call)
+    gate_text = main[opening:main.find("{", opening)] if call > 0 and opening >= 0 else ""
     check("re-projection is gated on the lasso origin",
-          'origin === "projection"' in main)
+          'origin === "projection"' in gate_text, gate_text)
+    check("re-projection also requires a lasso to exist, not just a projection event",
+          ".lasso" in gate_text, gate_text)
 
     # No analytic may be invoked at startup: bootstrap must not call them directly.
     bootstrap = main[main.find("async function bootstrap"):]

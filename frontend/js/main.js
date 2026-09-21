@@ -198,7 +198,13 @@ async function bootstrap() {
     // for View B. Not on every selection change: a refit costs two to three seconds,
     // and running it on each step of a ctrl-click sequence would make the interface
     // feel broken while telling the analyst nothing new.
-    if (origin === "projection" && !snapshot.empty) {
+    //
+    // The gate asks whether a lasso EXISTS, not only where the notification came from.
+    // Checking the origin alone was not enough: a plain click in View B publishes
+    // setLasso(null) with origin "projection", and with a country still selected the
+    // snapshot is not empty - so clicking the plot to dismiss nothing re-projected the
+    // map's selection, a refit the analyst never asked for.
+    if (origin === "projection" && SelectionStore.getState().lasso && !snapshot.empty) {
       ViewB.reproject(snapshot).catch((error) =>
         console.error("[threat-shape] re-projection failed:", error));
     }

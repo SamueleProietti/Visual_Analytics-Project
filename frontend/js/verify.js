@@ -96,6 +96,20 @@ async function verifyTriggers() {
     `${state.contrastBars} bars`);
   check("map click names the comparison", state.header.includes("vs"), state.header);
 
+  // The case that was reported: a country selected on the map, then a plain click in
+  // View B. It re-projected the country's incidents. Only a lasso may refit t-SNE.
+  const plane = document.querySelector("#view-b-canvas svg");
+  const box = plane.getBoundingClientRect();
+  const at = { bubbles: true, view: window,
+    clientX: box.left + box.width / 2, clientY: box.top + box.height / 2 };
+  plane.dispatchEvent(new MouseEvent("mousedown", { ...at, buttons: 1 }));
+  window.dispatchEvent(new MouseEvent("mouseup", { ...at, buttons: 0 }));
+  await wait(1500);
+  check("a click in View B does not re-project a country selection",
+    analyticOutput().localBanner === 0
+    && SelectionStore.getState().countries.length === 1,
+    `banner ${analyticOutput().localBanner}, countries ${SelectionStore.getState().countries}`);
+
   // Trigger 2 - timeline brush.
   SelectionStore.setYearRange([2022, 2024]);
   await wait(2000);
@@ -191,7 +205,7 @@ async function verifyLegends() {
 
     // The point of the layout: all four coordinated views on one screen. Only asserted
     // at a size the layout supports; below it the page is meant to scroll.
-    if (innerWidth >= 1100 && innerHeight >= 560) {
+    if (innerWidth >= 760 && innerHeight >= 560) {
       const page = document.documentElement;
       check(`${label} · the dashboard fits the window without a page scroll`,
         page.scrollHeight <= innerHeight + 1,
