@@ -697,4 +697,33 @@ stato reale senza dover rileggere tutta la chat.
       (613×209): rapporto Europa/Africa in pixel da **0,167 a 0,268** (+60%), Europa da
       1.349 a 1.991 px², Africa −8%, Italia +19%, Belgio +38%. Banda 82°N…56°S.
 
+- [x] View D — barre sbiadite davvero, niente hover, valori in pp — 2026-09-21
+      **AS index invariato: 61.452.** `06` da 43 a **46/46**, 24/24, 30/30, 21/21.
+      **Bug: le barre non affidabili non erano sbiadite.** `render()` imposta
+      `fill-opacity` 0,4 sulle feature che non passano il test di validità, ma la regola
+      CSS `rect.bar { fill-opacity: 0.88 }` la sovrascriveva (una dichiarazione CSS batte un
+      attributo di presentazione): misurato, dipinte a 0,88 come le altre. La legenda diceva
+      «faded, dashed bars fail the validity test» — tratteggiate sì, sbiadite mai. È lo
+      **stesso errore** del bordo di View A; il verificatore controlla ora entrambi i casi,
+      e rimettendo la regola fallisce 44/46.
+      **Tolto l'hover che scuriva le barre:** prometteva un'interazione che non esiste.
+      Resta il tooltip nativo con etichetta completa e cifre.
+      **Le lunghezze erano corrette, ma si leggevano male.** Brasile: Corporate Targets
+      +34,6pp con z 5,96; oissue Unknown +20,4pp e State institutions +20,9pp, entrambe con
+      z ≈ 2,6. La lunghezza è la differenza in pp, la z è la chiave dell'ordinamento, come
+      stabilito in Fase 9. Stessa differenza non vuol dire stessa z: z divide la differenza
+      per il suo errore standard, che dipende dal tasso di base — una feature vicina al 50%
+      di prevalenza è la più rumorosa che una proporzione possa essere (p(1−p) massimo), e
+      guadagna meno z a parità di pp. State institutions ha prevalenza combinata ~52%,
+      Corporate Targets ~16%: il rapporto degli errori standard, √(0,25/0,13) ≈ 1,37, spiega
+      esattamente perché 20,9pp danno 2,6 mentre 34,6pp danno 6,0. Mostrando solo la z
+      accanto alla barra, però, il lettore leggeva la z come lunghezza. Ora la colonna di
+      destra mostra entrambi: **`+34.6pp  z 6.0`**, con il valore in pp in evidenza.
+      **Proprietà fisse per ogni confronto? Misurato: no.** Su 48 paesi con almeno 20
+      incidenti, **53 feature diverse** entrano in qualche top 9; le 7 più frequenti, fissate
+      per tutti, coprirebbero in media il **32%** della top 9 di un paese, e in **17 paesi su
+      48** non ne catturerebbero nessuna delle prime 3. **Aperto:** il 45% degli slot in
+      cima è occupato da indicatori «Not available / Unknown / none» — da decidere come
+      trattarli.
+
 - [ ] Fase 17 — completata il: ___

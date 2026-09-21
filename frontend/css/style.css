@@ -433,7 +433,6 @@ circle.point:hover {
 /* ---------- View C: stacked area timeline ---------- */
 
 path.band { fill-opacity: 0.9; }
-path.band:hover { fill-opacity: 1; }
 
 /* Axes are drawn here, unlike View B, because years and counts are real quantities. */
 .axis text { font-size: 9px; fill: var(--ink-soft); }
@@ -458,11 +457,23 @@ path.band:hover { fill-opacity: 1; }
   font-style: italic;
 }
 
-rect.bar { fill-opacity: 0.88; }
-rect.bar:hover { fill-opacity: 1; }
+/* No fill-opacity here, and no hover state. Both were wrong in the same way.
+
+   The hover darkened a bar as if it could be clicked; nothing happens on a click - the
+   bars answer a question, they do not ask one - so it promised an interaction that does
+   not exist. The only thing a bar does on hover is show its native tooltip with the full
+   label and figures, which needs no visual invitation.
+
+   The base rule was worse. fill-opacity is set per bar in viewD_contrast.js - 0.4 for a
+   feature that fails the validity test - and a CSS declaration outranks a presentation
+   attribute, so this rule painted every unreliable bar at 0.88 like the rest. The legend
+   said "faded, dashed bars fail the validity test"; they were dashed, never faded. */
 
 .bar-label { font-size: 10px; fill: var(--ink); }
 .z-value   { font-size: 9px;  fill: var(--ink-soft); }
+/* The difference is the number the bar's length encodes, so it reads in ink; the z,
+   which only orders the bars, stays secondary. */
+.z-value .pp-value { fill: var(--ink); font-weight: 600; }
 
 .zero-line { stroke: var(--ink); stroke-width: 1; }
 

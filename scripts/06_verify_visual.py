@@ -296,6 +296,21 @@ def check_layer_separation():
             check(f"View A: {name_a} and {name_b} stay distinct",
                   worst >= MIN_DELTA_E, f"worst deltaE {worst:.1f} - {detail}")
 
+    # Attributes that the JS sets PER MARK must not also be set by a CSS rule on the same
+    # mark: a CSS declaration outranks a presentation attribute, so the rule silently wins
+    # for every mark. It happened twice - View A's selection border erased by the
+    # reliability dash, and View D's "faded" unreliable bars painted at full opacity - and
+    # both times the legend went on describing an encoding that was not on screen.
+    css = (ROOT / "frontend" / "css" / "style.css").read_text(encoding="utf-8")
+    bar_rule = css_block(css, "rect.bar")
+    check("View D's bar opacity is decided per bar in JS, not overridden by CSS",
+          "fill-opacity" not in bar_rule, bar_rule.strip()[:60])
+    check("View D's bars have no hover state (they cannot be clicked)",
+          "rect.bar:hover" not in css)
+    unreliable_rule = css_block(css, "path.country.is-unreliable")
+    check("View A's reliability dash does not override the selection colour",
+          "stroke:" not in unreliable_rule.replace("stroke-dasharray", ""), "")
+
     # The signed axis is the one meaning that appears in two views at once. If View D
     # drifted from View A's residual ends, red would mean "above expected" in one place
     # and something slightly different in the other - the exact inconsistency the course

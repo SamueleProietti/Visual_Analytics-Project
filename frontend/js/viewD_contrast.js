@@ -36,7 +36,7 @@ const ViewD = (() => {
 
   // The label gutter never takes more than 45% of the panel. At 168px fixed it left a
   // narrow panel with almost no room for the bars, which are the actual answer.
-  const MARGIN = { top: 6, right: 34, bottom: 18, left: 168 };
+  const MARGIN = { top: 6, right: 92, bottom: 18, left: 168 };
   const GUTTER_SHARE = 0.45;
 
   // Explains the faded, dashed bars - which the legend did not cover at all before.
@@ -155,11 +155,22 @@ const ViewD = (() => {
 
     // z printed next to each bar: the ranking key must be legible, not just implied by
     // position, or the reader cannot tell a solid finding from a marginal one.
-    plot.selectAll("text.z-value").data(ranked).join("text")
+    // Both numbers, side by side: the difference that sets the bar's LENGTH, then the z
+    // that sets its POSITION. Showing z alone invited the natural misreading that length
+    // is z - a +20.9pp bar and a +20.4pp bar at the same z = 2.6 then look inconsistent,
+    // and a z of 2.6 looks like it should be half a z of 6.0. They are two quantities:
+    // z divides the difference by its standard error, which depends on the sample size
+    // and on the base rate - a feature near 50% prevalence is the noisiest a proportion
+    // can be, so the same difference earns a smaller z there. Printing the pp value makes
+    // the length readable as what it is.
+    const values = plot.selectAll("text.z-value").data(ranked).join("text")
       .attr("class", "z-value")
-      .attr("x", innerW + 4).attr("y", (d) => y(d.label) + y.bandwidth() / 2)
-      .attr("dy", "0.35em")
-      .text((d) => "z " + d.z.toFixed(1) + (d.reliable === false ? " ⚠" : ""));
+      .attr("x", innerW + 6).attr("y", (d) => y(d.label) + y.bandwidth() / 2)
+      .attr("dy", "0.35em");
+    values.append("tspan").attr("class", "pp-value")
+      .text((d) => `${d.difference > 0 ? "+" : ""}${(d.difference * 100).toFixed(1)}pp`);
+    values.append("tspan")
+      .text((d) => `  z ${d.z.toFixed(1)}${d.reliable === false ? " ⚠" : ""}`);
 
     plot.append("line").attr("class", "zero-line")
       .attr("x1", x(0)).attr("x2", x(0)).attr("y1", 0).attr("y2", innerH);
