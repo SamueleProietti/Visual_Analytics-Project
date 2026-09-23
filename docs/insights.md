@@ -95,8 +95,12 @@ concrete case for the whole tool: the shape of a threat profile, not its volume.
 | `international law · Not available` | +65.0pp | 28.3 |
 | `international law · Sovereignty` | −60.9pp | −26.5 |
 
-Every one of them is about whether a field was *coded*, not about what happened. The
-coverage figures per year explain why:
+Every one of them is about whether a field was *coded*, not about what happened. (The
+table is the flat ranking by |z|, as `scripts/07_insights.py` prints it. On screen the
+panel shows the strongest one or two features *per dimension*, so the same "not
+available" rows appear spread across WHAT, HOW and WITH WHAT EFFECT.)
+
+The coverage figures per year explain why:
 
 | Year | n | `ilaw` not available | `downtime` not available | type occurrences per incident |
 |---|---|---|---|---|
