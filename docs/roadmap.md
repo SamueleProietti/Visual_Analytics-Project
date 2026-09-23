@@ -726,4 +726,46 @@ stato reale senza dover rileggere tutta la chat.
       cima è occupato da indicatori «Not available / Unknown / none» — da decidere come
       trattarli.
 
-- [ ] Fase 17 — completata il: ___
+- [x] Fase 17 — completata il: 2026-09-23 — **AS index invariato: 61.452**
+      **`docs/insights.md`: cinque insight**, ognuno raggiungibile con un gesto del tool,
+      prodotto da una delle tre analitiche e accompagnato dalla sua z. Soglia dichiarata:
+      |z| ≥ 2 è «più che rumore», e i numeri sotto soglia sono citati **come tali**, non
+      nascosti (View D · IT vs DE ransomware z 1,91; UA vs RU disruption z −1,21).
+      **`scripts/07_insights.py` ricalcola ogni cifra del documento** chiamando gli stessi
+      endpoint dell'interfaccia: i numeri del documento sono i numeri che il tool mostra,
+      non un'analisi parallela scritta in pandas che per caso concorda.
+      **Il lasso non è riproducibile, il cluster sì.** Dove l'analista racchiude un
+      gruppo a mano, lo script lo recupera con DBSCAN sulle coordinate t-SNE pubblicate
+      (eps=5, min_samples=10) e restituisce **78 e 37 incidenti**, esattamente i due
+      gruppi densi che il lasso racchiude.
+      **1. Russia, due famiglie operative.** 37 incidenti a intensità media 1,59
+      (`downtime · Day` +73,5pp, z 10,8) contro 78 a intensità **3,26**
+      (`technique · Data Exfiltration` +65,9pp, z 10,0). Re-proiezione locale:
+      trustworthiness 0,938 e 0,977. **Non si dividono per attore**: HUR e gruppi
+      volontari stanno in entrambi e la non-attribuzione è 38% contro 40%. La proiezione
+      ha separato *cosa fa* l'operazione, non *chi* la conduce.
+      **2. La rottura di codifica 2020-2022 domina qualsiasi contrasto temporale.**
+      `ilaw: Not available` passa da 100% (2013) a 86,8% (2019), 54,9% (2020), 16,7%
+      (2022), 2,1% (2024); le occorrenze di tipo per incidente da 1,21 a 2,04. Un brush
+      2000-2013 restituisce in cima **cinque feature che sono artefatti di codifica**
+      (|z| 26-34). È un insight *sul dato* trovato dal pannello di contrasto, ed è anche
+      la trappola che lo stesso pannello tende: per confrontare caratteristiche si
+      spazzola dentro l'era omogenea.
+      **3. L'attribuzione segue chi attacca, non la capacità della vittima.** Due regimi
+      sulla mappa: <30% non attribuiti (KR 17%, SA 21%, AE 24%, IN, CN, VN, UA) contro
+      >55% (FR 72%, ES, MX, CA, IT, US, DE, CH, AU, BE). Il contrasto spiega lo split:
+      quota media di iniziatori state-affiliated **45,2% contro 15,6%**. L'ipotesi
+      «gli occidentali attribuiscono meglio» è rovesciata.
+      **4. Ucraina e Russia sono immagini speculari.** Modalità A-vs-B: l'Ucraina è
+      colpita da attori statali (36,5% contro 10,4%, z 5,79), la Russia da gruppi non
+      statali (53,0% contro 13,1%, z −7,46) che pubblicano ciò che rubano (doxing 27,2%
+      contro 5,8%).
+      **5. Italia contro Germania.** Gruppi non statali 46,9% contro 18,6% (z 4,59);
+      non attribuiti 25,9% contro 49,4% (z −3,47). Profilo criminale tracciabile da una
+      parte, lacuna documentale dall'altra.
+      **Limiti dichiarati nel documento:** nessuna correzione per test multipli (123
+      indicatori per contrasto), gli iniziatori non hanno un layer sulla mappa, il corpus
+      è un registro di *segnalazioni*, e con tre o più paesi non esiste il dettaglio per
+      membro (§6.3).
+      **Da fare:** catturare i cinque screenshot elencati in fondo a `docs/insights.md`
+      dentro `docs/img/`.
