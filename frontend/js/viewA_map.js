@@ -84,6 +84,9 @@ const ViewA = (() => {
       format: (v) => (v * 100).toFixed(0) + "%",
       ticks: ["20%", "40%", "60%", "80%"],
       ends: ["0%", "100%"],
+      // Wider blocks than the other two layers: these labels carry a % sign, and at the
+      // shared 20px width "80%" and "100%" ran into each other at the right end.
+      blockWidth: 26,
     },
   };
 
@@ -248,7 +251,7 @@ const ViewA = (() => {
     row.append("span").attr("class", "legend-title legend-title--inline")
       .text(layer.legendTitle);
 
-    const BLOCK = 20;
+    const BLOCK = layer.blockWidth || 20;
     const ends = layer.ends || ["", ""];
     const w = BLOCK * layer.colours.length;
     const ramp = row.append("svg").attr("class", "ramp")
