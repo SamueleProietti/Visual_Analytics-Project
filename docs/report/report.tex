@@ -133,12 +133,10 @@ question. A graph answers \emph{what is connected to what}; our projection answe
 Sacha et al.~\cite{sacha} survey how analysts interact with dimensionality reduction and
 find seven recurring interaction scenarios, of which the one we implement --- recomputing
 a projection on a subset chosen in the view --- is among the most demanding, because the
-result must remain interpretable when the subset gets small. We use
-t-SNE~\cite{tsne} for the projection and report its trustworthiness~\cite{venna} with
-every local re-projection, and we follow the warnings collected by Wattenberg et
-al.~\cite{misread} about how t-SNE pictures are misread: axes without units, cluster
-sizes that do not mean density, and inter-cluster distances that do not mean
-dissimilarity. Those warnings drove concrete design decisions in Section~\ref{sec:design}.
+result must remain interpretable when the subset gets small. We use t-SNE~\cite{tsne},
+report its trustworthiness~\cite{venna} with every local re-projection, and follow the
+warnings collected by Wattenberg et al.~\cite{misread} about how its pictures are
+misread; they drove concrete decisions in Section~\ref{sec:design}.
 
 \subsection{Coordination and comparison}
 
@@ -228,10 +226,10 @@ ctrl-clicking several, drives the shared selection; a details panel reports the 
 suffered, the incidents initiated and the most targeted sector. A two-state switch
 replaces the layer with the share of incidents having no named initiator state. The
 projection is Miller cylindrical, chosen after measuring two alternatives on the real
-layout: an equal-area projection made Europe --- where the corpus is densest and the
-countries are smallest --- hard to read and to click, while Mercator stretched the north
-so fast that a dashboard-shaped card had to crop Scandinavia. Miller is neither conformal
-nor equal-area, and the report states so rather than hiding it.
+layout: an equal-area one made Europe --- where the corpus is densest and the countries
+smallest --- hard to read and to click, while Mercator stretched the north until a
+dashboard-shaped card had to crop Scandinavia. Miller is neither conformal nor
+equal-area, which we state rather than hide.
 
 \textbf{View B --- t-SNE projection.} One mark per incident, colour on a sequential
 single-hue ramp for weighted intensity, and size on $\log(1+x)$ of the affected entities
@@ -334,8 +332,8 @@ resources. Both re-project reliably (trustworthiness 0.938 and 0.977).
 
 The two families are \emph{not} separated by attacker: Ukraine's military intelligence and
 volunteer groups appear in both, and the share with no named initiator state is 38\%
-against 40\%. The projection separated what the operation does and how deep it gets, which
-is the cut a defender needs and one that no actor-based grouping would produce.
+against 40\%. The projection cut by what the operation does and how deep it gets --- the
+cut a defender needs, and one no actor-based grouping would produce.
 
 \subsection{A coding break masquerading as a trend}
 
@@ -427,9 +425,8 @@ colour-vision deficiencies, divergent scales only on signed quantities, a legend
 view), and two runtime suites driven from the browser console that replay interactions and
 assert what is on screen. They currently report 26/26, 46/46, 25/25 and 34/34.
 
-The suites have repeatedly earned their keep. They caught a CSS rule that silently
-overrode the fading of unreliable bars; a plain click in the projection that re-projected
-a country selection; and, most recently, a redraw-on-resize implementation that reached
+The suites have repeatedly earned their keep: they caught a plain click in the projection
+that re-projected a country selection, and a redraw-on-resize implementation that reached
 the views directly instead of going through the shared store --- reported as ``8 calls
 found'' against the four the contract allows.
 
