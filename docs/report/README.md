@@ -4,9 +4,8 @@
 
 ## Before submitting
 
-- Put the second group member's name and e-mail in `\author` (marked with a TODO in the
-  source).
-- Check the access date on reference [2] if you compile much later.
+- Check the access date on reference [2] (the EuRepoC dashboard) if you compile much
+  later than September 2026.
 
 ## Compiling
 
