@@ -185,6 +185,16 @@ def check_analytics_reachability():
     check("re-projection also requires a lasso to exist, not just a projection event",
           ".lasso" in gate_text, gate_text)
 
+    # The local layout belongs to the lasso that produced it. Dismissing the lasso has
+    # to dismiss the layout, and the test cannot be on the ORIGIN alone: the dismissing
+    # click publishes from "projection" itself, which is how View B once kept a local
+    # re-projection on screen after every other view had dropped the lasso.
+    scatter = (JS / "viewB_scatter.js").read_text(encoding="utf-8")
+    guard = scatter[scatter.find("function applySelection"):]
+    guard = guard[:guard.find("restoreGlobal();") + len("restoreGlobal();")]
+    check("View B drops the local layout when the lasso is gone",
+          "getState().lasso" in guard and "restoreGlobal();" in guard)
+
     # No analytic may be invoked at startup: bootstrap must not call them directly.
     bootstrap = main[main.find("async function bootstrap"):]
     for name in ("reproject(", "/api/residuals", "/api/contrast"):

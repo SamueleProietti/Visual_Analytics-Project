@@ -346,11 +346,19 @@ const ViewB = (() => {
   function applySelection(snapshot, origin) {
     if (!state.points) return;
 
-    // A local layout describes ONE selection. When the next selection comes from
-    // somewhere else - a map click, a timeline brush - that layout no longer describes
-    // what is selected, so the global one comes back rather than being left on screen
-    // with a different set highlighted on it.
-    if (local.active && origin && origin !== "projection") restoreGlobal();
+    // A local layout describes ONE lasso, so it may stay on screen only while THAT
+    // lasso is still the selection. Two ways it stops being so:
+    //
+    //   * the lasso is gone - the analyst clicked empty space to dismiss it. This is the
+    //     way back to the global layout, and it used to fail: the clearing click
+    //     publishes with origin "projection", which the old "came from another view"
+    //     test read as "this view's own doing, keep the layout", and with a country
+    //     still selected the snapshot was not empty either. The other three views
+    //     dropped the lasso while this one kept showing its re-projection.
+    //   * the selection changed elsewhere - a map click, a timeline brush - so the
+    //     layout no longer describes what is selected.
+    const lassoed = !!SelectionStore.getState().lasso;
+    if (local.active && (!lassoed || (origin && origin !== "projection"))) restoreGlobal();
 
     if (snapshot.empty) {
       restoreGlobal();

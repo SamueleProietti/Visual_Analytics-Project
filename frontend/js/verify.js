@@ -150,6 +150,39 @@ async function verifyTriggers() {
     SelectionStore.getState().countries.length === 0);
   check("clearing by sea click also removes the contrast", state.contrastBars === 0);
 
+  // Dismissing a lasso must also dismiss the layout it produced.
+  //
+  // Regression, reported from the interface: with a country selected, a lasso, and the
+  // local re-projection on screen, clicking empty space cleared the lasso everywhere
+  // EXCEPT in View B, which kept showing the local layout and its banner. The clearing
+  // click publishes with origin "projection", which View B read as its own doing, and
+  // the snapshot was not empty because the country was still selected.
+  //
+  // Driven through the store rather than by a synthetic drag: the click path ends in
+  // exactly this call, and simulating the drag itself is what phase 15 already judged
+  // too fragile to assert.
+  SelectionStore.clear();
+  await wait(600);
+  SelectionStore.setCountries(["RU"]);
+  await wait(1500);
+  const russian = SelectionStore.resolve().selected.map((d) => d.incident_id);
+  SelectionStore.setLasso(new Set(russian.slice(0, 80)));
+  await wait(9000);
+  check("a lasso puts View B into its local layout", ViewB.isLocal(),
+    `isLocal=${ViewB.isLocal()}`);
+
+  SelectionStore.setLasso(null);
+  await wait(900);
+  check("dismissing the lasso restores the global layout", !ViewB.isLocal(),
+    `isLocal=${ViewB.isLocal()}`);
+  check("dismissing the lasso keeps the country selection",
+    SelectionStore.getState().countries.join(",") === "RU",
+    SelectionStore.getState().countries.join(","));
+  check("dismissing the lasso removes the local-projection banner",
+    document.querySelectorAll("#view-b-canvas g.local-banner").length === 0);
+  SelectionStore.clear();
+  await wait(600);
+
   const passed = results.filter(Boolean).length;
   console.log(`%c${passed}/${results.length} runtime checks passed`,
     `font-weight:bold;color:${passed === results.length ? "green" : "red"}`);
