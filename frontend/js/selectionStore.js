@@ -113,6 +113,18 @@ const SelectionStore = (() => {
     notify("timeline");
   }
 
+  /** Send the current selection to the subscribers again, unchanged.
+   *
+   * For a redraw - a resized window - where the views have to be rebuilt at a new size
+   * and then handed back what is already selected. It sets nothing: the snapshot the
+   * subscribers receive is resolved from the state the store already holds, so this
+   * cannot produce a selection that no interaction made, and every view still reacts
+   * through the one subscription rather than being called directly.
+   */
+  function republish(origin) {
+    notify(origin || "republish");
+  }
+
   function clear() {
     if (isEmpty()) return;
     state = { countries: [], lasso: null, yearRange: null };
@@ -217,7 +229,7 @@ const SelectionStore = (() => {
 
   return {
     setCorpus, subscribe, getState, isEmpty, resolve, resolveIgnoring,
-    setCountries, setLasso, setYearRange, clear,
+    setCountries, setLasso, setYearRange, clear, republish,
     // Exposed for the phase-10 tests; the views use the methods above.
     _subscriberCount: () => subscribers.size,
   };

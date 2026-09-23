@@ -217,6 +217,95 @@ async function bootstrap() {
 
   console.info(`[selection] store ready · empty=${SelectionStore.isEmpty()} · `
     + `subscribers=${SelectionStore._subscriberCount()}`);
+
+  watchWindowSize();
+}
+
+/**
+ * Redraw the views when the window changes size.
+ *
+ * Every chart is drawn at the pixel size its card had when it was built: the map's
+ * projection, the projection's scales, the timeline's axes. Nothing re-read that size
+ * afterwards, so resizing the window - or moving the browser to a projector, which is
+ * the version of this that happens during a demo - left four SVGs at their old size
+ * inside cards that had changed. Measured before the fix: a 1265px window narrowed to
+ * 900 left 611px-wide charts in 428px cards, clipped on the right.
+ *
+ * Redrawing is a rebuild, not a rescale: the projection has to be recomputed against
+ * the new aspect ratio, and the t-SNE layout re-fitted, so there is nothing cheaper to
+ * do here. It stays affordable because the map's geometry is fetched once and kept.
+ *
+ * DEBOUNCED, and deliberately not throttled: a drag of the window edge fires resize
+ * continuously, and rebuilding four views per frame would make the drag stutter. The
+ * views redraw once, when the window has been still for 200ms.
+ *
+ * This is NOT an analytic trigger. It redraws what is already selected and publishes
+ * nothing to the store; the snapshot it re-applies is the one the store already holds.
+ */
+function watchWindowSize() {
+  const SETTLE_MS = 200;
+  const grid = document.querySelector(".view-grid");
+  if (!grid) return;
+
+  let timer = null;
+  let last = `${grid.clientWidth}x${grid.clientHeight}`;
+
+  const settle = () => {
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      const size = `${grid.clientWidth}x${grid.clientHeight}`;
+      if (size === last) return;           // woken by something that changed no size
+      last = size;
+      await redrawViews();
+    }, SETTLE_MS);
+  };
+
+  // The GRID is observed, not the window. The two are not the same thing: the cards are
+  // sized by CSS from the window, but a zoom change, a device-emulation override or a
+  // browser that resizes without firing `resize` all move the cards without a window
+  // event - and it is the card's width the charts are drawn against. ResizeObserver
+  // watches what actually matters and fires whatever caused it to change.
+  if (typeof ResizeObserver === "function") {
+    new ResizeObserver(settle).observe(grid);
+  }
+  // Kept as well: a window that changes size while the grid does not (a very short
+  // window hitting --grid-min-h, where the page scrolls instead) still needs the charts
+  // refitted to their new heights.
+  window.addEventListener("resize", settle);
+
+  // And once more when the page becomes visible again. Browsers stop delivering both
+  // resize events and ResizeObserver callbacks to a page that is not rendering, so a
+  // window resized - or a laptop plugged into a projector - while this tab sat in the
+  // background comes back to a layout nobody told the charts about. Measured in the
+  // preview pane used to test this, where a hidden page receives no observer callbacks
+  // at all. settle() compares sizes before redrawing, so a visible-again page that did
+  // not change costs one comparison.
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) settle();
+  });
+}
+
+async function redrawViews() {
+  // A canvas of zero width means the page is hidden (a background tab, a minimised
+  // window). Drawing into it would produce charts fitted to nothing, which is what the
+  // reader would then see when the tab came back.
+  const canvas = document.getElementById("view-a-canvas");
+  if (!canvas || !canvas.clientWidth || !canvas.clientHeight) return;
+
+  try {
+    if (store.countries) await ViewA.init(store.countries);
+    if (store.incidents) ViewB.init(store.incidents);
+    if (store.timeline) ViewC.init(store.timeline);
+
+    // The selection survives the rebuild, and it comes back the way every selection
+    // does: through the store. republish() sets nothing - it re-sends what the store
+    // already holds - so the views are still reached by exactly one path, and the
+    // origin "resize" tells them this is a redraw rather than a fresh interaction.
+    SelectionStore.republish("resize");
+    console.info(`[threat-shape] redrawn at ${window.innerWidth}x${window.innerHeight}`);
+  } catch (error) {
+    console.error("[threat-shape] redraw after resize failed:", error);
+  }
 }
 
 document.addEventListener("DOMContentLoaded", bootstrap);

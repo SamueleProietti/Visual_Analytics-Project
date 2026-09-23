@@ -234,6 +234,19 @@ async function verifyLegends() {
       const el = document.getElementById(`view-${v}-legend`);
       return el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1;
     });
+    // Every chart is drawn at the pixel width its card had at the time. If the two ever
+    // disagree the card has changed size since - a resized window, a projector - and the
+    // chart is being clipped by its own card, which is what the redraw on resize exists
+    // to prevent.
+    const misfitted = ["a", "b", "c"].filter((v) => {
+      const canvas = document.getElementById(`view-${v}-canvas`);
+      const svg = canvas.querySelector(":scope > svg");
+      return svg && Math.abs(+svg.getAttribute("width") - canvas.clientWidth) > 1;
+    });
+    check(`${label} · every chart is drawn at its card's current width`,
+      misfitted.length === 0,
+      misfitted.length ? `stale: ${misfitted.join(", ").toUpperCase()}` : "");
+
     check(`${label} · no legend is clipped`, clipped.length === 0,
       clipped.length ? `clipped: ${clipped.map((v) => v.toUpperCase()).join(", ")}` : "");
 

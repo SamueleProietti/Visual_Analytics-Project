@@ -599,3 +599,12 @@ path.band.is-faded, path.band-selected.is-faded { fill-opacity: 0.12; }
   font-size: 10px;
   color: var(--ink-soft);
 }
+
+/* Below this width View C's six type names no longer fit on one line, and the strip
+   clipped the last of them - found by testing the redraw at a smaller window. The strip
+   keeps a fixed height, it is simply a two-line one here: a legend may never resize a
+   chart after it is drawn, but it may be told in advance that it needs two rows. */
+@media (max-width: 1120px) {
+  .legend-strip { height: 28px; flex-wrap: wrap; row-gap: 1px; }
+  .legend-strip--spread { justify-content: center; column-gap: 12px; }
+}

@@ -515,27 +515,35 @@ const ViewA = (() => {
     host.selectAll(".placeholder, :scope > svg").remove();
 
     state.byCode = new Map(countries.map((c) => [c.code, c]));
+    state.scale = 1;          // a redraw rebuilds the svg, so the camera starts fitted
 
-    const [isoCodes, topo] = await Promise.all([
-      d3.json(ISO_URL),
-      d3.json(GEO_URL),
-      loadTopojson(),
-    ]);
-
-    // alpha-2 -> numeric-3, stripped of leading zeros so "004" and "4" compare equal.
-    const toNumeric = new Map(isoCodes.map((row) => [row[0], String(parseInt(row[2], 10))]));
+    // Fetched once and kept: init() runs again on every window resize, and re-fetching
+    // 739 KB of geometry to answer a drag of the window edge would make the dashboard
+    // feel broken on exactly the machine that has the least bandwidth.
+    if (!state.geometry) {
+      const [isoCodes, topo] = await Promise.all([
+        d3.json(ISO_URL),
+        d3.json(GEO_URL),
+        loadTopojson(),
+      ]);
+      state.geometry = {
+        // alpha-2 -> numeric-3, stripped of leading zeros so "004" and "4" compare equal.
+        toNumeric: new Map(isoCodes.map((row) => [row[0], String(parseInt(row[2], 10))])),
+        features: topojson.feature(topo, topo.objects.countries).features,
+      };
+    }
+    const { toNumeric, features } = state.geometry;
     state.byNumeric = new Map();
     for (const country of countries) {
       const numeric = toNumeric.get(country.code);
       if (numeric) state.byNumeric.set(numeric, country);
     }
 
-    const features = topojson.feature(topo, topo.objects.countries).features;
     const width = host.node().clientWidth;
     const height = host.node().clientHeight;
 
-    // Equirectangular, covering the canvas - see coverProjection() for why this is not
-    // an equal-area projection, and what that costs.
+    // Miller, covering the canvas - see coverProjection() for why it is neither an
+    // equal-area nor a conformal projection, and what that costs.
     const projection = coverProjection(width, height);
     state.path = d3.geoPath(projection);
 

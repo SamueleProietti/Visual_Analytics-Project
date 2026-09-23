@@ -196,9 +196,17 @@ const ViewB = (() => {
     };
   }
 
+  // Analytics 6.2's state: whether a local re-projection is currently on screen.
+  // Declared before init() because init() resets it.
+  let local = { active: false, banner: null };
+
   function init(incidents) {
     const host = d3.select("#view-b-canvas");
     host.html("");
+    // The svg that carried a local layout is gone, so the flag that says one is on
+    // screen has to go with it. Without this a redraw would leave the view claiming a
+    // re-projection it had just thrown away, and refuse the next lasso.
+    local.active = false;
 
     const width = host.node().clientWidth;
     const height = host.node().clientHeight;
@@ -380,8 +388,6 @@ const ViewB = (() => {
   // this is where that happens: the layout is genuinely refitted on the selected subset,
   // not filtered from the precomputed one. Structure the global embedding had to
   // compress can re-emerge at local scale.
-
-  let local = { active: false, banner: null };
 
   function setBanner(text, kind) {
     if (!state.svg) return;

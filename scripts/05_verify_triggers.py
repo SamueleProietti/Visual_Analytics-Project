@@ -185,6 +185,16 @@ def check_analytics_reachability():
     check("re-projection also requires a lasso to exist, not just a projection event",
           ".lasso" in gate_text, gate_text)
 
+    # republish() exists for the redraw after a window resize: it re-sends the current
+    # selection so the rebuilt views get it back. It is safe only as long as it sets
+    # nothing - otherwise it would be a way to produce a selection no interaction made.
+    store = (JS / "selectionStore.js").read_text(encoding="utf-8")
+    body = store[store.find("function republish"):]
+    body = body[:body.find("}") + 1]
+    check("republish() re-sends the selection and mutates nothing",
+          "notify(" in body and "state" not in body,
+          " ".join(body.split()))
+
     # The local layout belongs to the lasso that produced it. Dismissing the lasso has
     # to dismiss the layout, and the test cannot be on the ORIGIN alone: the dismissing
     # click publishes from "projection" itself, which is how View B once kept a local
