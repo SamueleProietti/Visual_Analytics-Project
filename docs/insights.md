@@ -37,7 +37,18 @@ groups in turn.
 
 **What the tool shows.** Russia's 220 incidents are not spread across the projection:
 they concentrate in two dense regions. Lassoing each one re-projects it (§6.2) and
-recomputes the contrast against the *other* Russian incidents (§6.3, A-vs-B mode).
+recomputes the contrast (§6.3).
+
+Two comparisons are worth separating, because they answer different questions:
+
+- **On screen**, a lasso compares the enclosed incidents with *the rest of the world*.
+  That is what the screenshots below show: the upper group leads with
+  `cyber conflict issue · International power` +82.8pp (z 13.0), the central group with
+  `issue · Resources` +82.6pp (z 23.8) — both saying "this is war-related", which
+  separates them from the corpus but not from each other.
+- **To separate the two families**, the comparison has to be the other Russian incidents.
+  That is the A-vs-B contrast in the table below, computed by `scripts/07_insights.py`
+  (the interface reserves A-vs-B for exactly two selected countries, §6.3).
 
 | | Upper group | Central group |
 |---|---|---|
@@ -65,7 +76,8 @@ stops. The two groups differ by a factor of two in intensity and describe two di
 adversaries; an analyst preparing a situational assessment needs them apart. This is the
 concrete case for the whole tool: the shape of a threat profile, not its volume.
 
-![Insight 1](img/insight-1-russia-clusters.png)
+![Insight 1 — the two clusters](img/insight-1a-russia-two-clusters.png)
+![Insight 1 — the central cluster re-projected](img/insight-1b-russia-reprojected.png)
 
 ---
 
@@ -249,8 +261,12 @@ its insight describes:
 
 | File | State to capture |
 |---|---|
-| `insight-1-russia-clusters.png` | Russia clicked; then the same with the central cluster lassoed and the local-projection banner visible |
+| `insight-1a-russia-two-clusters.png` | Russia clicked. The two dense groups of highlighted points in View B are the subject |
+| `insight-1b-russia-reprojected.png` | Same, then the central group lassoed: purple `LOCAL re-projection` banner in View B, contrast panel filled |
 | `insight-2-coding-break.png` | Timeline brushed 2000–2013, View D showing the "Not available" features at the top |
-| `insight-3-attribution-regimes.png` | View A on the Attribution layer, no selection |
-| `insight-4-ukraine-russia.png` | Ukraine clicked, Russia ctrl-clicked, header reading `"UA" vs "RU"` |
-| `insight-5-italy-germany.png` | Italy clicked, Germany ctrl-clicked |
+| `insight-3-attribution-regimes.png` | View A on the Attribution layer, nothing selected |
+| `insight-4-ukraine-russia.png` | Ukraine clicked, Russia ctrl-clicked, View D header reading `"UA" vs "RU"` |
+| `insight-5-italy-germany.png` | Italy clicked, Germany ctrl-clicked, header reading `"IT" vs "DE"` |
+
+Capture the **whole dashboard** each time, not a single view: the point of every insight
+is that several coordinated views answer at once.
