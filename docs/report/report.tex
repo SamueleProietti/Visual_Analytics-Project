@@ -288,6 +288,17 @@ not where it becomes good. Every accepted re-projection reports its $n$, its per
 and its trustworthiness in a banner, because a local layout and the global one look alike
 while their axes mean different things.
 
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{insight-1b-russia-reprojected.png}
+\caption{The dimensionality reduction inside the analysis flow. A lasso over the Russian
+cluster refits t-SNE on the enclosed incidents alone; the banner states that the layout is
+local and reports $n$, the adapted perplexity and the trustworthiness of the new
+embedding. The other views follow the same selection: the map switches to the standardized
+deviation and the contrast panel recomputes.}
+\label{fig:reproject}
+\end{figure}
+
 \subsection{Contrastive z-scores}
 
 For each of the 123 indicators, the proportion carrying it in the selection is compared
@@ -367,6 +378,17 @@ below 30\% unattributed (KR 17\%, SA 21\%, AE 24\%, IN, CN, VN, UA) and above 55
 share of incidents with a state-affiliated initiator is 45.2\% in the first group against
 15.6\% in the second. The intuitive hypothesis --- that western states with mature CERTs
 attribute better --- is backwards; what differs is who attacks them.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{insight-3-attribution-regimes.png}
+\caption{The attribution layer, the second state of the map's display switch. The
+sequential scale reports the share of a country's incidents with no named initiator
+state, and separates the two regimes discussed here. No selection is active, so the three
+analytics have produced nothing --- the contrast panel shows its prompt instead of a
+result.}
+\label{fig:attribution}
+\end{figure}
 
 \subsection{Ukraine and Russia are mirror images}
 
