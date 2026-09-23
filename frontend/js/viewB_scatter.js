@@ -64,81 +64,135 @@ const ViewB = (() => {
     return COLOURS[Math.min(index, COLOURS.length - 1)];
   }
 
-  function renderLegend(incidents) {
+  /** Legend in one line under the plot, spread across the view - the same form as
+   * View C's key.
+   *
+   * It floated inside the plot before, first in a corner and then in the title row,
+   * and wherever it floated it either covered points or forced the plot to shrink
+   * around it. Below the plot it costs one line of height and covers nothing.
+   */
+  function renderLegend() {
     const legend = d3.select("#view-b-legend");
     legend.selectAll("*").remove();
 
-    // Two encodings, two groups side by side, each with its title above its values.
-    // The titles used to sit inline with the swatches, which put two different scales on
-    // one run of symbols and left the reader to work out where one ended and the other
-    // began. Grouping is the separation.
-    const colourGroup = legend.append("div").attr("class", "legend-group");
-    colourGroup.append("span").attr("class", "legend-title").text("weighted intensity");
-    const colourRow = colourGroup.append("div").attr("class", "legend-row");
+    // Colour: seven intensity classes as a stepped ramp, labelled under each block,
+    // because the classes are integers rather than intervals.
+    const colourGroup = legend.append("span").attr("class", "legend-item");
+    colourGroup.append("span").attr("class", "legend-title legend-title--inline")
+      .text("weighted intensity");
+    const BLOCK = 14;
+    const ramp = colourGroup.append("svg").attr("class", "ramp")
+      .attr("width", BLOCK * COLOURS.length).attr("height", 18);
+    ramp.selectAll("rect").data(COLOURS).join("rect")
+      .attr("x", (d, i) => i * BLOCK).attr("width", BLOCK).attr("height", 8)
+      .attr("fill", (d) => d);
+    ramp.selectAll("text").data(COLOURS).join("text")
+      .attr("x", (d, i) => i * BLOCK + BLOCK / 2).attr("y", 17)
+      .attr("text-anchor", "middle")
+      .text((d, i) => (i === COLOURS.length - 1 ? i + "+" : i));
 
-    const swatches = colourRow.selectAll("span.legend-item.c")
-      .data(COLOURS.map((c, i) => ({ c, i })))
-      .join("span").attr("class", "legend-item c");
-    swatches.append("span").attr("class", "legend-swatch").style("background", (d) => d.c);
-    swatches.append("span").text((d) => (d.i === COLOURS.length - 1 ? d.i + "+" : d.i));
-
-    // Size legend: three reference circles drawn at the same scale as the plot, so the
-    // reader can compare against the marks rather than guess.
-    const sizeGroup = legend.append("div").attr("class", "legend-group");
-    sizeGroup.append("span").attr("class", "legend-title").text("affected entities");
-    const sizeRow = sizeGroup.append("div").attr("class", "legend-row");
-    // 15px tall: one line of legend text plus a little, so it fits the legend's fixed
-    // two-line height. The circles are still drawn with the plot's own radiusFor(), so
-    // they stay directly comparable with the marks - the 1000 circle is about 12px wide,
-    // which the height holds. Width is measured from what was drawn rather than fixed.
+    // Size: three reference circles drawn at the plot's own scale, so the reader
+    // compares against the marks rather than guesses.
+    const sizeGroup = legend.append("span").attr("class", "legend-item");
+    sizeGroup.append("span").attr("class", "legend-title legend-title--inline")
+      .text("affected entities");
     const sizes = [0, 10, 1000];
-    const svg = sizeRow.append("svg").attr("height", 15);
-    let x = 7;
+    const svg = sizeGroup.append("svg").attr("class", "ramp").attr("height", 2 * R_MAX + 2);
+    let x = R_MIN + 1;
     let right = 0;
     for (const value of sizes) {
       const r = radiusFor(value);
-      svg.append("circle").attr("cx", x).attr("cy", 7.5).attr("r", r)
+      svg.append("circle").attr("cx", x).attr("cy", R_MAX + 1).attr("r", r)
         .attr("fill", "none").attr("stroke", "#6a6a6a");
-      const label = svg.append("text").attr("x", x + r + 3).attr("y", 11)
-        .attr("font-size", 9).attr("fill", "#6b6b6b").text(value);
-      // getComputedTextLength() is 0 if the legend is not laid out yet; fall back to
-      // an estimate rather than sizing the svg to nothing.
+      const label = svg.append("text").attr("x", x + r + 3).attr("y", R_MAX + 4)
+        .text(value.toLocaleString("en"));
       right = x + r + 3 + (label.node().getComputedTextLength()
         || String(value).length * 5.5);
-      x += r + 24;
+      x = right + 6 + R_MAX;
     }
     svg.attr("width", Math.ceil(right) + 2);
   }
 
   /**
-   * Map an embedding onto the canvas with ONE scale factor for both axes.
+   * Map an embedding onto the canvas, filling it.
    *
-   * Not two independent d3.extent stretches, which is what this did until the grid
-   * became fluid. t-SNE axes carry no units, but the embedding is still isotropic: the
-   * ratio of two distances inside it is the only thing it does assert. Stretching x and
-   * y by different factors destroys exactly that - a round cluster is drawn as an
-   * ellipse, and the wider the view gets the more elongated it becomes. The unused space
-   * is left as margin instead, and the plot is centred in it.
+   * t-SNE preserves NEIGHBOURHOODS, not global geometry: its axes carry no units, and
+   * which point is next to which is the only thing a reader may take from it. That
+   * survives any monotone per-axis rescaling, so the plot is allowed to stretch one axis
+   * more than the other to use the card. A perfectly isotropic fit left a quarter of a
+   * wide card as blank margin either side of a roughly round cloud.
+   *
+   * The stretch is capped, not free: past about 2x a round cluster starts to read as
+   * an elongated one, which would suggest an ordering along the long axis that t-SNE
+   * never produced. Below the cap the plot fills the card; above it the rest is
+   * margin, centred. orient() below first rotates the cloud - which distorts nothing -
+   * so that the cap is reached as rarely as possible.
    *
    * @param {number} topPad extra room at the top, for the local-projection banner
    */
+  const MAX_STRETCH = 2.0;
+  const PAD = R_MAX + 2;
+
+  /** The two axis factors fitScales() would use, and the canvas area they fill. */
+  function fitFactors(spanX, spanY, width, height, topPad) {
+    let kx = (width - 2 * PAD) / (spanX || 1);
+    let ky = (height - 2 * PAD - topPad) / (spanY || 1);
+    if (kx > ky * MAX_STRETCH) kx = ky * MAX_STRETCH;
+    if (ky > kx * MAX_STRETCH) ky = kx * MAX_STRETCH;
+    return { kx, ky, filled: kx * spanX * ky * spanY };
+  }
+
+  /**
+   * Rotate an embedding so it fills the canvas best, and store the result as u, v.
+   *
+   * A t-SNE layout has no preferred orientation: the cost it minimises depends only on
+   * distances between points, so any rotation of it is an equally valid answer (the
+   * optimiser's random start is what picked the one we got). Rotating it costs nothing
+   * in faithfulness and lets its longest extent lie along the card's longest side. The
+   * angle is searched in 5-degree steps and the one that fills the most canvas area,
+   * under the same stretch cap, wins.
+   */
+  function orient(points, width, height, topPad = 0) {
+    const cx = d3.mean(points, (p) => p.x);
+    const cy = d3.mean(points, (p) => p.y);
+    let best = { angle: 0, filled: -1 };
+    for (let deg = 0; deg < 180; deg += 5) {
+      const a = (deg * Math.PI) / 180;
+      const cos = Math.cos(a);
+      const sin = Math.sin(a);
+      let u0 = Infinity; let u1 = -Infinity; let v0 = Infinity; let v1 = -Infinity;
+      for (const p of points) {
+        const u = (p.x - cx) * cos - (p.y - cy) * sin;
+        const v = (p.x - cx) * sin + (p.y - cy) * cos;
+        if (u < u0) u0 = u; if (u > u1) u1 = u;
+        if (v < v0) v0 = v; if (v > v1) v1 = v;
+      }
+      const { filled } = fitFactors(u1 - u0, v1 - v0, width, height, topPad);
+      if (filled > best.filled) best = { angle: a, filled };
+    }
+    const cos = Math.cos(best.angle);
+    const sin = Math.sin(best.angle);
+    for (const p of points) {
+      p.u = (p.x - cx) * cos - (p.y - cy) * sin;
+      p.v = (p.x - cx) * sin + (p.y - cy) * cos;
+    }
+    return points;
+  }
+
   function fitScales(xs, ys, width, height, topPad = 0) {
     const [x0, x1] = d3.extent(xs);
     const [y0, y1] = d3.extent(ys);
-    const pad = R_MAX + 2;
     const spanX = (x1 - x0) || 1;
     const spanY = (y1 - y0) || 1;
+    const { kx, ky } = fitFactors(spanX, spanY, width, height, topPad);
 
-    const k = Math.min((width - 2 * pad) / spanX,
-                       (height - 2 * pad - topPad) / spanY);
-
-    const left = (width - k * spanX) / 2;
-    const top = topPad + (height - topPad - k * spanY) / 2;
+    const left = (width - kx * spanX) / 2;
+    const top = topPad + (height - topPad - ky * spanY) / 2;
 
     return {
-      x: d3.scaleLinear().domain([x0, x1]).range([left, left + k * spanX]),
+      x: d3.scaleLinear().domain([x0, x1]).range([left, left + kx * spanX]),
       // Inverted range: SVG y grows downward, the embedding's does not.
-      y: d3.scaleLinear().domain([y0, y1]).range([top + k * spanY, top]),
+      y: d3.scaleLinear().domain([y0, y1]).range([top + ky * spanY, top]),
     };
   }
 
@@ -152,7 +206,10 @@ const ViewB = (() => {
     state.maxLog = Math.max(...incidents.map(
       (d) => Math.log1p(Math.max(0, d.affected_entities_value ?? 0))));
 
-    const { x, y } = fitScales(incidents.map((d) => d.x), incidents.map((d) => d.y),
+    // u, v: the embedding rotated to fit this canvas (see orient). The raw x, y are
+    // left untouched on the shared incident objects.
+    orient(incidents, width, height);
+    const { x, y } = fitScales(incidents.map((d) => d.u), incidents.map((d) => d.v),
       width, height);
 
     const svg = host.append("svg")
@@ -168,29 +225,34 @@ const ViewB = (() => {
     state.points = svg.append("g").selectAll("circle")
       .data(ordered).join("circle")
       .attr("class", "point")
-      .attr("cx", (d) => x(d.x))
-      .attr("cy", (d) => y(d.y))
+      .attr("cx", (d) => x(d.u))
+      .attr("cy", (d) => y(d.v))
       .attr("r", (d) => radiusFor(d.affected_entities_value))
       .attr("fill", (d) => colourFor(d.weighted_intensity))
       .attr("fill-opacity", 0.78)
       .attr("stroke", "#ffffff")
       .attr("stroke-width", 0.35);
 
-    state.points.append("title").text((d) =>
-      `${(d.name || "").trim().slice(0, 70)}\n`
-      + `${d.year ?? "no date"} · intensity ${d.weighted_intensity ?? "?"} · `
-      + `${d.affected_entities_value ?? 0} affected entities`);
+    // Details on demand: what the incident was, then when, what kind, how severe and
+    // how wide. The type is what a cluster is usually made of, so it is the fact an
+    // analyst reads a neighbourhood by.
+    Tooltip.attach(state.points, "view-b", (d) => {
+      const types = (d.types || []).length ? d.types.join(", ") : "type not available";
+      return `<strong>${Tooltip.esc((d.name || "").trim())}</strong>`
+        + `<span>${d.year ?? "no date"} · ${Tooltip.esc(types)} · `
+        + `intensity ${d.weighted_intensity ?? "?"} · `
+        + `${(d.affected_entities_value ?? 0).toLocaleString("en")} affected entities</span>`;
+    });
 
-    // The "no units" caveat is no longer painted over the plot. It still has to be
-    // said - it is what stops the plane being read as a map - so it moved to the view's
-    // subtitle in index.html, beside the other instructions. Same statement, off the
-    // data.
+    // The "no units" caveat is not painted over the plot. It still has to be said - it
+    // is what stops the plane being read as a map - so it is the view title's tooltip in
+    // index.html, beside the other instructions. Same statement, off the data.
 
     state.x = x;
     state.y = y;
     attachLasso(svg, ordered, width, height);
 
-    renderLegend(incidents);
+    renderLegend();
     console.info(`[view B] ${incidents.length} points drawn`);
     return incidents.length;
   }
@@ -208,6 +270,7 @@ const ViewB = (() => {
 
     svg.on("mousedown", (event) => {
       event.preventDefault();
+      Tooltip.hide("view-b");
       state.drawing = true;
       state.vertices = [point(event)];
       // No outline is drawn while a local layout is on screen: the gesture cannot
@@ -330,8 +393,8 @@ const ViewB = (() => {
     local.active = false;
     state.points.attr("display", null);
     state.points.transition().duration(400)
-      .attr("cx", (d) => state.x(d.x))
-      .attr("cy", (d) => state.y(d.y));
+      .attr("cx", (d) => state.x(d.u))
+      .attr("cy", (d) => state.y(d.v));
     setBanner(null);
   }
 
@@ -363,13 +426,15 @@ const ViewB = (() => {
     }
 
     const byId = new Map(result.points.map((p) => [p.incident_id, p]));
-    const xs = result.points.map((p) => p.x);
-    const ys = result.points.map((p) => p.y);
+    const w = +state.svg.attr("width");
+    const h = +state.svg.attr("height");
+    orient(result.points, w, h, 20);
+    const xs = result.points.map((p) => p.u);
+    const ys = result.points.map((p) => p.v);
     // Same isotropic fit as the global layout. Using a different mapping here would make
     // the two embeddings visually incomparable for a reason that has nothing to do with
     // the data - 20px of top padding leaves room for the banner.
-    const { x: lx, y: ly } = fitScales(xs, ys, +state.svg.attr("width"),
-      +state.svg.attr("height"), 20);
+    const { x: lx, y: ly } = fitScales(xs, ys, w, h, 20);
 
     local.active = true;
 
@@ -385,8 +450,8 @@ const ViewB = (() => {
     state.points.attr("display", (d) => (byId.has(d.incident_id) ? null : "none"));
 
     state.points.transition().duration(600)
-      .attr("cx", (d) => (byId.has(d.incident_id) ? lx(byId.get(d.incident_id).x) : state.x(d.x)))
-      .attr("cy", (d) => (byId.has(d.incident_id) ? ly(byId.get(d.incident_id).y) : state.y(d.y)));
+      .attr("cx", (d) => (byId.has(d.incident_id) ? lx(byId.get(d.incident_id).u) : state.x(d.u)))
+      .attr("cy", (d) => (byId.has(d.incident_id) ? ly(byId.get(d.incident_id).v) : state.y(d.v)));
 
     // The banner is not decoration: an analyst must never mistake a local layout for
     // the global one, because the axes mean something different in each.
@@ -400,7 +465,7 @@ const ViewB = (() => {
     local.active = false;
     state.points.attr("display", null);
     state.points.transition().duration(400)
-      .attr("cx", (d) => state.x(d.x)).attr("cy", (d) => state.y(d.y));
+      .attr("cx", (d) => state.x(d.u)).attr("cy", (d) => state.y(d.v));
   }
 
   return { init, applySelection, reproject, restoreGlobal,

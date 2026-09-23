@@ -174,6 +174,11 @@ async function bootstrap() {
   // View D is initialised into its EMPTY state on purpose. It is the visible proof of
   // the "no default global state" rule: analytics 6.3 has nothing to say until the
   // analyst selects something (CLAUDE.md sec.6).
+  // The feature table is what turns a contrast's column names into readable labels and
+  // into the dimension each belongs to (View D's grouping). Handed over before the
+  // panel can ever be drawn; it asserts no result, so the "no default global state"
+  // rule (CLAUDE.md sec.6) is untouched.
+  ViewD.setFeatureBlocks(store.features);
   ViewD.showEmpty();
 
   // The store is handed the corpus so it can resolve a selection into incidents, but

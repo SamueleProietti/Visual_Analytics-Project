@@ -353,11 +353,19 @@ def check_fixed_size():
     check("view canvases take the remaining space and may shrink below their content",
           "flex: 1 1 auto" in canvas and "min-height: 0" in canvas)
     check("view canvases clip rather than scroll", "overflow: hidden" in canvas)
-    for selector, token in [(".view-head", "var(--head-h)"), (".view-sub", "var(--sub-h)"),
-                            (".view-legend", "var(--legend-h)")]:
-        block = css_block(css, selector)
-        check(f"{selector} has a fixed height, so it cannot push the chart",
-              f"height: {token}" in block and "flex: none" in block)
+    head = css_block(css, ".view-head")
+    check(".view-head has a fixed height, so it cannot push the chart",
+          "height: var(--head-h)" in head and "flex: none" in head)
+
+    # Legends no longer sit in the view's flow with a fixed height. They are either
+    # floated inside the chart (View A) or a strip of fixed height under it (B, C, D).
+    # Both keep the invariant that matters: a legend cannot resize the chart after the
+    # chart has been drawn, whatever state it is in.
+    check(".legend-float is out of flow, so it cannot push the chart",
+          "position: absolute" in css_block(css, ".legend-float"))
+    strip = css_block(css, ".legend-strip")
+    check(".legend-strip has a fixed height, so it cannot push the chart",
+          "height: 14px" in strip and "flex: none" in strip)
     check("the dashboard is sized from the window, not from the page content",
           "100vh" in css_block(css, ".app-shell"))
     check("inline svg is display:block (baseline gap caused a scroll in phase 6)",

@@ -39,7 +39,8 @@ async function verifyTriggers() {
   };
 
   const analyticOutput = () => ({
-    contrastBars: document.querySelectorAll("#view-d-canvas rect.bar").length,
+    // One <g class="row"> per contrasted feature - the dumbbell rows View D draws.
+    contrastBars: document.querySelectorAll("#view-d-canvas g.row").length,
     residualHatching: document.querySelectorAll("path.country.is-unreliable").length,
     localBanner: document.querySelectorAll(".local-banner").length,
     header: document.getElementById("view-d-header").textContent,
@@ -74,7 +75,7 @@ async function verifyTriggers() {
   check("the map has exactly two zoom buttons", zoomButtons.length === 2,
     `${zoomButtons.length} found`);
   const selectionBefore = JSON.stringify(SelectionStore.getState());
-  const scaleOf = () => d3.zoomTransform(document.querySelector("#view-a-canvas svg")).k;
+  const scaleOf = () => d3.zoomTransform(document.querySelector("#view-a-canvas > svg")).k;
   for (let i = 0; i < 7; i += 1) zoomButtons[0].click();
   const zoomedIn = scaleOf();
   for (let i = 0; i < 7; i += 1) zoomButtons[1].click();
@@ -88,7 +89,7 @@ async function verifyTriggers() {
 
   // Trigger 1 - map click.
   const country = [...document.querySelectorAll("path.country")]
-    .find((p) => (p.querySelector("title") || {}).textContent?.startsWith("United States"));
+    .find((p) => d3.select(p).datum().properties.name.startsWith("United States"));
   country.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   await wait(2000);
   state = analyticOutput();
@@ -98,7 +99,7 @@ async function verifyTriggers() {
 
   // The case that was reported: a country selected on the map, then a plain click in
   // View B. It re-projected the country's incidents. Only a lasso may refit t-SNE.
-  const plane = document.querySelector("#view-b-canvas svg");
+  const plane = document.querySelector("#view-b-canvas > svg");
   const box = plane.getBoundingClientRect();
   const at = { bubbles: true, view: window,
     clientX: box.left + box.width / 2, clientY: box.top + box.height / 2 };
@@ -131,7 +132,7 @@ async function verifyTriggers() {
   // vanishing when the analyst tried to pan - would be blamed on anything but this.
   const countries = [...document.querySelectorAll("path.country")];
   const byName = (n) => countries.find(
-    (p) => (p.querySelector("title") || {}).textContent?.startsWith(n));
+    (p) => d3.select(p).datum().properties.name.startsWith(n));
   byName("Italy").dispatchEvent(new MouseEvent("click", { bubbles: true, view: window }));
   await wait(1200);
   byName("Germany").dispatchEvent(
@@ -220,7 +221,7 @@ async function verifyLegends() {
   assertAll("empty");
 
   const country = [...document.querySelectorAll("path.country")]
-    .find((p) => (p.querySelector("title") || {}).textContent?.startsWith("Germany"));
+    .find((p) => d3.select(p).datum().properties.name.startsWith("Germany"));
   country.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   await wait(2000);
   assertAll("selection");

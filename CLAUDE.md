@@ -7,7 +7,8 @@ Persistent project context. Read this fully before writing any code.
 ## 1. What this project is
 
 University Visual Analytics project (Sapienza, Prof. Giuseppe Santucci, Fall 2025).
-Two-person group. Graded on: running software + 5-6 page scientific-style report +
+Two-person group. Graded on: running software + scientific-style report (the rules
+slides say "up to 5 pages" in one place and "5-6 pages" in another — write for 5) +
 PowerPoint presentation + live demo. The approved 1-page proposal is
 `docs/proposal.md` — it is the contract. Do not silently diverge from it; if an
 implementation detail forces a change, flag it before proceeding.
@@ -34,7 +35,7 @@ These are graded. Violating them costs points or causes exclusion.
 |---|---|---|
 | Missing 2 bidirectionally coordinated views | 5 pts | 4 views, all coordinated via shared selection store |
 | Missing related work | 5 pts | Report cites the official EuRepoC dashboard explicitly, states differentiation |
-| Missing analytics triggered by visual interaction | 5 pts | 3.1/3.2/3.3 fire only on lasso/click/brush, never on menu |
+| Missing analytics triggered by visual interaction | 5 pts | 3.1/3.2/3.3 fire on lasso/click/brush and on nothing else — the rule asks for at least one such computation, see §2's note |
 | DR not integrated in the analysis flow | 2 pts | 3.2 re-embeds the selected subset on every interaction |
 | Non-standard colour encodings | 2 pts | Divergent scale only where sign is meaningful; check `incident_type` category count stays at or below 12 before committing to the timeline palette |
 | Missing legends | 2 pts | Every view has its own legend |
@@ -53,11 +54,31 @@ number of analytical columns and the real one-hot dimension count against the ac
 CSVs — if the ~20 raw analytical columns don't match what's finalized, fix the draft's numbers before
 anything else is built on top of them.
 
-**No menus, dropdowns, or radio buttons to trigger analytics.** Lasso on the
-projection, click/ctrl-click on map countries, and timeline brush are the only
-triggers. The "switchable attribution-rate layer" on the map is a toggle between two
-display modes, not an analytics trigger — keep it a simple two-state control, not a
-dropdown with more options than that.
+**What the course rules actually require (verbatim, "Exam structure and rules",
+updated 16.12.2025).** Slide 5: *"Mandatory ANALYTICS: every assignment MUST contain at
+least 1 computation that is triggered by user visual interactions (no change in the
+dataset, no simple filter, no simple selection from a menu)."* Slide 4, on the approved
+1-page draft: *"How do you trigger visually the analytics — Not using a menu, not
+selecting a radio button."* Slide 15: *"Missing analytics triggered by visual
+interaction (5 points penalty)."*
+
+This is a **minimum to meet, not a ban on controls**. The parenthesis says what does
+*not count* as a visually triggered computation; no exclusion criterion and no penalty
+punishes a control existing in the interface. An earlier reading of this file turned it
+into a blanket prohibition — that was ours, not the course's.
+
+The working rule for this project therefore is:
+
+- **The three analytics keep visual-only triggers**: 6.1 fires on a map click/ctrl-click,
+  6.2 on a lasso, 6.3 on the resulting selection. These are the answer to "how do you
+  trigger visually the analytics", they are what the approved proposal promises, and
+  they are the reason the 5-point penalty cannot apply. Do not add a second way in.
+- **Display controls are allowed** and earn nothing: the map's two-state layer toggle,
+  the zoom buttons, View C's legend highlight. They change what is drawn, never what is
+  computed, and they must not write to the selection store.
+- Anything that would make a menu or a legend the way an analytic is started needs to be
+  raised first — it is not forbidden by the rules, but it would contradict the proposal
+  and weaken the demo's answer to the examiner's question.
 
 ---
 

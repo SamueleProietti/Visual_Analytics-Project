@@ -6,89 +6,85 @@
   <title>Threat-Shape</title>
   <!-- ?v= is bumped when an asset changes, so a browser holding an old copy is
        forced to refetch instead of silently running stale code. -->
-  <link rel="stylesheet" href="css/style.css?v=47">
+  <link rel="stylesheet" href="css/style.css?v=64">
 </head>
 <body>
 
   <div class="app-shell">
 
   <header class="app-header">
-    <h1>THREAT-SHAPE</h1>
+    <h1>Threat-Shape</h1>
+    <span class="app-tagline">the shape of a national cyber-threat profile · EuRepoC 2000–2024</span>
   </header>
 
   <!-- Shown by main.js only when the backend is unreachable or the cached artifacts are
        missing. Hidden the rest of the time: a standing "all ok" badge is chrome. -->
   <div id="app-alert" class="app-alert" hidden></div>
 
-  <!-- The whole dashboard is sized from the WINDOW, not from fixed pixel heights, so the
-       four views fit one screen with no page scroll - the way it has to be seen during
-       the live demo, where coordinated views that scroll apart are not coordinated.
+  <!-- The whole dashboard is sized from the WINDOW, so the four views fit one screen with
+       no page scroll - coordinated views that scroll apart are not coordinated.
 
        Two by two, as in the draft mockup: A B on top, D C underneath.
 
-       Views never scroll (CLAUDE.md sec.2). Titles, subtitles and legends have fixed
-       heights, so no state of a legend can steal height from its chart after the chart
-       has been drawn. -->
+       Each view is a title and a chart, nothing else. Legends float INSIDE the chart, in
+       space the data leaves empty, so every pixel of the card below the title is chart.
+       The interaction hints that used to be a subtitle live in the title's tooltip. -->
   <main class="view-grid">
 
     <section class="view view--a" id="view-a">
       <div class="view-head">
-        <h2>View A <span class="view-kind">World choropleth map</span></h2>
+        <h2 title="click a country · ctrl-click to compare several · click the sea to clear">World choropleth map</h2>
         <!-- Two-state display switch, never a dropdown (CLAUDE.md sec.2). -->
-        <span class="toggle" id="view-a-toggle"></span>
+        <span class="view-head-extra toggle" id="view-a-toggle"></span>
       </div>
-      <p class="view-sub">click a country · ctrl-click to compare several · click the sea to clear</p>
       <div class="view-canvas" id="view-a-canvas">
         <span class="placeholder">loading map…</span>
-        <!-- Zoom control and details popup float INSIDE the map rectangle, over the
-             ocean, so neither steals height from the geometry nor grows the view. -->
+        <!-- Zoom control, details popup and legend float INSIDE the map rectangle, so
+             none of them steals height from the geometry. -->
         <div class="map-zoom" id="view-a-zoom"></div>
         <div class="map-popup" id="view-a-details" hidden></div>
+        <div class="view-legend legend-float legend-float--map" id="view-a-legend"></div>
       </div>
-      <div class="view-legend is-stacked" id="view-a-legend"></div>
     </section>
 
     <section class="view view--b" id="view-b">
       <div class="view-head">
-        <h2>View B <span class="view-kind">t-SNE projection</span></h2>
+        <!-- The "no units" caveat is in the tooltip: t-SNE axes carry no metric and
+             inter-cluster distances are not meaningful (CLAUDE.md sec.5). -->
+        <h2 title="drag to lasso · click empty space to clear · axes have no units, distances between clusters are not meaningful">t-SNE projection</h2>
       </div>
-      <!-- The "no units" caveat lives here rather than as a caption over the plot: it
-           belongs with the instructions, not on the data (CLAUDE.md sec.5). -->
-      <p class="view-sub">drag to lasso · click empty space to clear · axes have no units, distances between clusters are not meaningful</p>
       <div class="view-canvas" id="view-b-canvas">
         <span class="placeholder">loading projection…</span>
       </div>
-      <div class="view-legend is-grouped" id="view-b-legend"></div>
+      <!-- One line under the plot, like View C's key (viewB renderLegend). -->
+      <div class="view-legend legend-strip legend-strip--spread legend-strip--tall" id="view-b-legend"></div>
     </section>
 
     <section class="view view--d" id="view-d">
       <div class="view-head">
-        <h2>View D <span class="view-kind">Contrast panel</span></h2>
+        <h2 title="bar length = difference in percentage points · order = |z|, i.e. reliability · faded, dashed bars fail the validity test">Contrast Panel</h2>
+        <!-- The comparison target is always stated (CLAUDE.md sec.5). -->
+        <span class="view-head-extra panel-header is-muted" id="view-d-header">no selection</span>
       </div>
-      <!-- The comparison target gets a line of its own, first. It used to share the title
-           line and was ellipsised away exactly when it was longest - and CLAUDE.md sec.5
-           forbids leaving the comparison target implicit. -->
-      <p class="view-sub view-sub--split">
-        <span class="panel-header is-muted" id="view-d-header">no selection</span>
-        <span>bar length = difference in pp · order = |z|, i.e. reliability</span>
-      </p>
       <div class="view-canvas" id="view-d-canvas">
         <!-- Starts empty by design: analytics 6.3 must not compute before a selection
              exists (CLAUDE.md sec.6). This prompt is the "no default global state". -->
         <span class="placeholder">select a country or lasso a cluster</span>
       </div>
-      <div class="view-legend" id="view-d-legend"></div>
+      <div class="view-legend legend-strip" id="view-d-legend"></div>
     </section>
 
     <section class="view view--c" id="view-c">
       <div class="view-head">
-        <h2>View C <span class="view-kind">Stacked area timeline</span></h2>
+        <h2 title="drag across the years to brush · bands count type occurrences, not incidents: one incident can carry several types">Timeline</h2>
+        <!-- Says which scale the count axis is on; empty while it is the global one. -->
+        <span class="view-head-extra scale-note" id="view-c-scale"></span>
       </div>
-      <p class="view-sub">drag across the years to brush · bands count type occurrences, not incidents: one incident can carry several types</p>
       <div class="view-canvas" id="view-c-canvas">
         <span class="placeholder">loading timeline…</span>
       </div>
-      <div class="view-legend" id="view-c-legend"></div>
+      <!-- One line under the time axis, spread across the view (viewC renderLegend). -->
+      <div class="view-legend legend-strip legend-strip--spread" id="view-c-legend"></div>
     </section>
 
   </main>
@@ -96,14 +92,15 @@
   </div><!-- /.app-shell -->
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
-  <script src="js/selectionStore.js?v=47"></script>
-  <script src="js/viewA_map.js?v=47"></script>
-  <script src="js/viewB_scatter.js?v=47"></script>
-  <script src="js/viewC_timeline.js?v=47"></script>
-  <script src="js/viewD_contrast.js?v=47"></script>
-  <script src="js/main.js?v=47"></script>
+  <script src="js/selectionStore.js?v=64"></script>
+  <script src="js/tooltip.js?v=64"></script>
+  <script src="js/viewA_map.js?v=64"></script>
+  <script src="js/viewB_scatter.js?v=64"></script>
+  <script src="js/viewC_timeline.js?v=64"></script>
+  <script src="js/viewD_contrast.js?v=64"></script>
+  <script src="js/main.js?v=64"></script>
   <!-- Verification tool, not application code. Kept separate so the trigger
        audit can prove that only three things write to the selection store. -->
-  <script src="js/verify.js?v=47"></script>
+  <script src="js/verify.js?v=64"></script>
 </body>
 </html>

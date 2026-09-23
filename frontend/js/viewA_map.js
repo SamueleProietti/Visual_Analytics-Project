@@ -43,18 +43,19 @@ const ViewA = (() => {
   const LAYERS = {
     residual: {
       label: "Residual",
-      legendTitle: "standardized deviation z",
+      legendTitle: "z-score",
       // Divergent, and legitimately so: zero means "exactly as expected" and the sign
       // says over- or under-represented. ColorBrewer RdBu, the same opponent pair
       // View D uses, so red means "more than expected" in both views.
       colours: ["#2166ac", "#67a9cf", "#d1e5f0", "#f7f7f7", "#fddbc7", "#ef8a62", "#b2182b"],
       breaks: [-3, -2, -1, 1, 2, 3],
       value: (d) => (d.residual == null ? null : d.residual.z),
-      legendLabels: ["≤ -3", "-3..-2", "-2..-1", "-1..1", "1..2", "2..3", "≥ 3"],
+      // Labels sit on the class BOUNDARIES of the stepped ramp, not under each block.
+      ticks: ["-3", "-2", "-1", "1", "2", "3"],
     },
     volume: {
       label: "Incident volume",
-      legendTitle: "incidents recorded",
+      legendTitle: "incidents",
       // Sequential: the variable has no meaningful zero point or sign, so a divergent
       // scale would invent one (CLAUDE.md sec.2).
       //
@@ -67,11 +68,12 @@ const ViewA = (() => {
       breaks: VOLUME_BREAKS,
       value: (d) => d.incidents,
       format: (v) => String(v),
-      legendLabels: ["1", "2–5", "6–20", "21–50", "51–200", "200+"],
+      ticks: ["2", "6", "21", "51", "201"],
+      ends: ["1", ""],
     },
     attribution: {
       label: "Attribution",
-      legendTitle: "share with no named initiator state",
+      legendTitle: "unattributed",
       // ColorBrewer YlOrBr, not Reds. Reds was the worst collision in the tool: measured
       // under tritanopia its dark end (#a50f15) sat at deltaE 5.0 from the residual
       // layer's "above expected" (#b2182b) - the same dark red carrying two different
@@ -80,7 +82,8 @@ const ViewA = (() => {
       breaks: RATE_BREAKS,
       value: (d) => d.not_attributed_rate,
       format: (v) => (v * 100).toFixed(0) + "%",
-      legendLabels: ["0–20%", "20–40%", "40–60%", "60–80%", "80–100%"],
+      ticks: ["20%", "40%", "60%", "80%"],
+      ends: ["0%", "100%"],
     },
   };
 
@@ -100,35 +103,38 @@ const ViewA = (() => {
     panned: false,
   };
 
-  /* The latitude band the map keeps on screen. The north keeps Svalbard and the
-   * Russian Arctic coast; the south stops just below Cape Horn, which drops Antarctica -
-   * EuRepoC records no receiver there, so it is the one large area whose loss costs
-   * nothing. If the canvas is wider than this band the band is cropped evenly at both
-   * ends; if narrower, longitude is. */
-  const LAT_TOP = 82;
-  const LAT_BOTTOM = -56;
+  /* The latitude band the map keeps on screen: Greenland's northern coast to just
+   * past Cape Horn. Antarctica is dropped - EuRepoC records no receiver there. If the
+   * canvas is wider than this band, latitude is cropped from the north (see
+   * coverProjection); if narrower, longitude is cropped evenly at both ends. */
+  const LAT_TOP = 83;
+  const LAT_BOTTOM = -57;
 
-  /** Equirectangular, scaled to COVER the canvas: a rectangle, square corners, no oval.
+  /** Miller cylindrical: y = 1.25 * ln(tan(pi/4 + 0.4 * phi)).
    *
-   * This is a deliberate step away from an equal-area projection, and it has a cost
-   * that has to be stated rather than hidden. Equirectangular inflates area by
-   * 1/cos(latitude): 1.6x at Europe's 50 degrees, 2x at 60, about 3x in the Arctic. A
-   * choropleth colours area, so Russia and Canada gain visual weight they did not earn.
+   * Built from its formula with d3.geoProjection, which is part of core d3, so no
+   * extra library. Chosen as the compromise between the two projections this view has
+   * already tried and rejected:
    *
-   * The equal-area versions - Equal Earth, then a cylindrical equal-area - were honest
-   * about area and wrong for this tool in two ways that only showed on screen. Equal
-   * Earth's outline is an oval, so it cannot fill a rectangle without empty corners. And
-   * in any equal-area world map Africa takes its true share of the pixels - the largest
-   * - while carrying the fewest incidents, and Europe, where the corpus is densest, is
-   * squashed until its small states are hard to see and harder to CLICK. In a view whose
-   * whole job is to be clicked, that is the worse distortion.
+   *   equirectangular - latitude linear, so the whole 83N-57S band fits a wide card,
+   *                     but countries look vertically squashed and hard to recognise;
+   *   Mercator        - shapes correct (conformal), but it stretches the north so fast
+   *                     that on a card this wide the band had to be cropped at ~60N,
+   *                     cutting Norway, Sweden, Finland, Iceland and Greenland.
    *
-   * Equirectangular is the proportions of the reference dashboard, and the mildest of
-   * the familiar rectangular options: Mercator inflates by 1/cos^2, twice as much at every
-   * latitude, and would make Greenland the size of Africa.
+   * Miller is Mercator with the stretch damped (0.4 and 1.25 instead of 0.5 and 1):
+   * shapes stay close to familiar at the latitudes where the corpus lives, and the band
+   * up to 71N - the North Cape - still fits a laptop-sized card. It is neither
+   * conformal nor equal-area; area inflation at 60N is about 3x instead of Mercator's
+   * 4x. The colour is read per country, not integrated over area.
    */
+  function millerRaw(lambda, phi) {
+    return [lambda, 1.25 * Math.log(Math.tan(Math.PI / 4 + 0.4 * phi))];
+  }
+
+  /** Miller, scaled to COVER the canvas: a full rectangle, no empty corners. */
   function coverProjection(width, height) {
-    const projection = d3.geoEquirectangular().scale(1).translate([0, 0]);
+    const projection = d3.geoProjection(millerRaw).scale(1).translate([0, 0]);
 
     // Rectangular, so the extent is four numbers rather than a path's bounding box.
     const left = projection([-180, 0])[0];
@@ -137,11 +143,15 @@ const ViewA = (() => {
     const bottom = projection([0, LAT_BOTTOM])[1];
 
     // The LARGER of the two factors: cover the box and crop, never letterbox inside it.
-    const k = Math.max(width / (right - left), height / (bottom - top));
-    return projection.scale(k).translate([
-      width / 2 - k * (left + right) / 2,
-      height / 2 - k * (top + bottom) / 2,
-    ]);
+    const kWidth = width / (right - left);
+    const k = Math.max(kWidth, height / (bottom - top));
+
+    // When the card is wider than the band, latitude has to be cropped - and it is
+    // cropped from the NORTH. The far north is the Arctic Ocean and an empty Greenland;
+    // the far south is Patagonia, Tasmania and New Zealand, which carry incidents.
+    // Anchoring the bottom keeps all of them.
+    const ty = k === kWidth ? height - k * bottom : height / 2 - k * (top + bottom) / 2;
+    return projection.scale(k).translate([width / 2 - k * (left + right) / 2, ty]);
   }
 
   /** Load the topojson-client helper, which D3 does not bundle. */
@@ -217,33 +227,45 @@ const ViewA = (() => {
     return datum ? datum.code : null;
   }
 
+  /** Legend inside the map, bottom right, as ONE row: title, stepped ramp, off-scale
+   * swatches.
+   *
+   * One row, and inset from the right edge (see .legend-float--map), so it sits over
+   * the Southern Ocean between South Africa and Tasmania. Flush in the corner it would
+   * cover New Zealand and Tasmania; two rows tall it would reach southern Australia.
+   *
+   * The ramp reads like a gradient bar, but the blocks are the actual classes and the
+   * numbers sit on their boundaries - a smooth gradient would claim a continuous scale
+   * the map does not use. "no data" (and, on the residual layer, the small-sample
+   * hatching) follow as separate swatches, because they are not points on the scale.
+   */
   function renderLegend() {
     const layer = LAYERS[activeLayer()];
     const legend = d3.select("#view-a-legend");
     legend.selectAll("*").remove();
 
-    // On the residual layer the reliability count rides on the title line. It used to
-    // be a third line of its own, and the legend has a fixed two-line height now - a
-    // third line would be clipped, or would have to steal height from the map.
-    const title = legend.append("span").attr("class", "legend-title").text(layer.legendTitle);
-    if (activeLayer() === "residual" && state.residuals && state.residuals.summary) {
-      title.append("span").attr("class", "legend-note")
-        .text(` · ${state.residuals.summary.reliable} of `
-          + `${state.residuals.summary.countries} countries have a reliable residual`);
-    }
+    const row = legend.append("div").attr("class", "legend-row legend-row--ramp");
+    row.append("span").attr("class", "legend-title legend-title--inline")
+      .text(layer.legendTitle);
 
-    // The classes go in their own row under the title. Inline, the title took enough of
-    // the width that the attribution layer's last class dropped onto a second line by
-    // itself - and a class sitting alone below the others reads as a separate thing,
-    // not as the top of one ordered scale.
-    const row = legend.append("div").attr("class", "legend-row");
-
-    const items = row.selectAll("span.legend-item")
-      .data(layer.colours.map((colour, i) => ({ colour, label: layer.legendLabels[i] })))
-      .join("span").attr("class", "legend-item");
-    items.append("span").attr("class", "legend-swatch")
-      .style("background", (d) => d.colour);
-    items.append("span").text((d) => d.label);
+    const BLOCK = 20;
+    const ends = layer.ends || ["", ""];
+    const w = BLOCK * layer.colours.length;
+    const ramp = row.append("svg").attr("class", "ramp")
+      .attr("width", w + 16).attr("height", 19);
+    const g = ramp.append("g").attr("transform", "translate(8,0)");
+    g.selectAll("rect.block").data(layer.colours).join("rect")
+      .attr("class", "block")
+      .attr("x", (d, i) => i * BLOCK).attr("y", 0)
+      .attr("width", BLOCK).attr("height", 8)
+      .attr("fill", (d) => d);
+    g.append("rect").attr("width", w).attr("height", 8)
+      .attr("fill", "none").attr("stroke", "rgba(0,0,0,0.15)");
+    const labels = [[0, ends[0]], ...layer.ticks.map((t, i) => [(i + 1) * BLOCK, t]),
+                    [w, ends[1]]].filter((d) => d[1]);
+    g.selectAll("text").data(labels).join("text")
+      .attr("x", (d) => d[0]).attr("y", 18).attr("text-anchor", "middle")
+      .text((d) => d[1]);
 
     const none = row.append("span").attr("class", "legend-item");
     none.append("span").attr("class", "legend-swatch").style("background", NO_DATA);
@@ -252,8 +274,7 @@ const ViewA = (() => {
     if (activeLayer() === "residual" && state.residuals) {
       const flagged = row.append("span").attr("class", "legend-item");
       flagged.append("span").attr("class", "legend-swatch is-unreliable-swatch");
-      flagged.append("span").text(`small sample (exp. < ${state.residuals
-        ? state.residuals.summary.min_expected : 5})`);
+      flagged.append("span").text("small sample");
     }
   }
 
@@ -367,85 +388,50 @@ const ViewA = (() => {
     });
   }
 
-  /** Write the popup, or hide it.
+  /** Write the details panel, or hide it.
    *
-   * Hidden rather than showing "click a country for details": as a panel below the map
-   * that prompt filled a box that was there anyway, but as a popup it would sit over the
-   * geometry permanently, covering countries to say nothing. The invitation lives in the
-   * view's subtitle instead, where it costs no map.
+   * A fixed box in the bottom-left corner, over the South Pacific, whatever is
+   * selected. It used to open beside the clicked country, and with several countries
+   * selected it grew over the very countries being compared. Fixed position and fixed
+   * size mean it covers the same stretch of open ocean every time.
+   *
+   * The box is sized for ONE country. With several, the cards stack and the box
+   * scrolls - the one scrolling element in the interface, and a deliberate one: the
+   * alternative was a box whose height grows with the selection and eats the map, or
+   * cards silently cut off. The map view itself never scrolls (CLAUDE.md sec.2).
    */
   function setPopup(html) {
     const panel = d3.select("#view-a-details");
     panel.property("hidden", !html);
     panel.html(html || "");
+    panel.node().scrollTop = 0;
   }
 
-  function showDetails(datum, residuals) {
-    if (!datum) return setPopup(null);
+  // Sector names shortened to fit the fixed-width box; the full name is the tooltip.
+  const SHORT_SECTOR = {
+    "State institutions / political system": "State institutions",
+    "International / supranational organization": "International org.",
+  };
 
-    // The country-level residual, when there is a non-circular context to compute it in.
-    //
-    // When there is not - a country picked on its own - the line is simply absent. It
-    // used to carry an explanation of why the number was missing, which spent three
-    // lines of a popup that floats over the map to describe something the analyst had
-    // not asked for. The sector breakdown below IS the analysis in that state, and it
-    // names its own comparison, so nothing is silently missing.
-    let residualLine = "";
-    if (datum.residual) {
-      const r = datum.residual;
-      const badge = r.reliable ? "" : ' <em class="badge">small sample</em>';
-      residualLine = '<span>share of this selection: '
-        + `<strong>z ${r.z > 0 ? "+" : ""}${r.z.toFixed(2)}</strong>`
-        + ` · ${r.observed} seen vs ${Math.round(r.expected)} expected${badge}</span>`;
-    }
+  /** One country's card: the three facts the analyst asked for, and nothing else.
+   * Kept short deliberately - CLAUDE.md sec.5 asks for a summary, not a profile dump.
+   *
+   * "in country" counts incidents where it is a RECEIVER; "initiated" counts those
+   * where it is the named initiator state in the attribution table. */
+  function countryBlock(datum) {
+    const sector = datum.top_sector.split("(")[0].trim();
+    return `<div class="popup-row">
+      <span class="popup-name" title="${datum.country}">${datum.country}</span>
+      <dl>
+        <dt>Incidents in country</dt><dd>${datum.incidents.toLocaleString("en")}</dd>
+        <dt>Incidents initiated</dt><dd>${(datum.initiated ?? 0).toLocaleString("en")}</dd>
+        <dt class="is-wide">Top sector</dt>
+        <dd class="is-wide" title="${sector}">${SHORT_SECTOR[sector] || sector}</dd>
+      </dl></div>`;
+  }
 
-    // Sector breakdown, split by DIRECTION rather than listed by |z|.
-    //
-    // The old line read "by sector: Critical infrastructure +4.1 · Education +3.8" - the
-    // two largest deviations by absolute value, with the sign left to be decoded and no
-    // statement of what they deviate FROM. Two things went wrong with it. The reader had
-    // to know that + means "more than expected", and because the list was ranked on |z|
-    // alone it could show two positives and hide an equally strong negative: the United
-    // States' Media sector sits at -3.35, just behind Education's +3.76, and never
-    // appeared. Splitting the list guarantees both directions are represented when both
-    // exist, and the heading says what the comparison is.
-    let sectorLines = "";
-    if (residuals && residuals.sectors && residuals.sectors.length) {
-      const format = (s) => {
-        const badge = s.reliable ? "" : ' <em class="badge">small n</em>';
-        // Sector names are cut at 24 characters so each direction stays on one line of
-        // the popup - "State institutions / political system" would otherwise wrap and
-        // push the other direction out of the box.
-        const name = s.sector.split("(")[0].trim();
-        return `${name.length > 24 ? name.slice(0, 23) + "…" : name} `
-          + `<strong>z ${s.z > 0 ? "+" : ""}${s.z.toFixed(1)}</strong>${badge}`;
-      };
-      const over = residuals.sectors.filter((s) => s.z > 0).slice(0, 2);
-      const under = residuals.sectors.filter((s) => s.z < 0).slice(0, 2);
-      if (over.length || under.length) {
-        sectorLines = '<span class="sectors-head">which sectors are hit, '
-          + "against the global sector mix</span>";
-        if (over.length) {
-          sectorLines += `<span class="sectors">more than expected: `
-            + `${over.map(format).join(" · ")}</span>`;
-        }
-        if (under.length) {
-          sectorLines += `<span class="sectors">less than expected: `
-            + `${under.map(format).join(" · ")}</span>`;
-        }
-      }
-    }
-
-    // Kept short deliberately - CLAUDE.md sec.5 asks for a summary, not a profile dump.
-    // Shorter still now that it floats over the map: every extra line is a line of
-    // geometry the analyst cannot see.
-    setPopup(`
-      <strong>${datum.country}</strong>
-      <span>${datum.incidents} incidents · top sector: `
-      + `${datum.top_sector.split("(")[0].trim()} (${datum.top_sector_count})</span>
-      ${residualLine}
-      ${sectorLines}
-    `);
+  function showDetails(datum) {
+    setPopup(datum ? countryBlock(datum) : null);
   }
 
   function onCountryClick(event, feature) {
@@ -502,32 +488,18 @@ const ViewA = (() => {
   function renderSelection(snapshot) {
     const codes = new Set(SelectionStore.getState().countries);
 
-    // A lasso or a brush selects incidents, not countries, so the countries those
-    // incidents hit are still counted - the popup reports the figure. They are no longer
-    // outlined: see draw(). The border now means "the analyst picked this", and only a
-    // map click can say that.
-    const touched = new Set();
-    if (!snapshot.empty && !codes.size) {
-      for (const incident of snapshot.selected) {
-        for (const c of incident.countries || []) touched.add(c);
-      }
-    }
     state.selected = codes;
     draw();
 
-    const list = [...codes];
+    // The popup describes the countries the analyst CLICKED. A lasso or a brush selects
+    // incidents, not countries, so it opens no popup - the other views answer it.
+    const list = [...codes].map((c) => state.byCode.get(c)).filter(Boolean);
     if (list.length === 1) {
-      showDetails(state.byCode.get(list[0]), state.residuals);
+      showDetails(list[0]);
     } else if (list.length > 1) {
-      // No "contrast A-vs-B" line any more: it named a phase rather than a result, and
-      // the contrast itself is in View D, which states its own comparison in full.
-      // Repeating it here would give the analyst two places to read one answer.
-      setPopup(`<strong>${list.length} countries selected</strong>`
-        + `<span>${list.join(", ")}</span>`);
-    } else if (!snapshot.empty) {
-      setPopup(`<strong>${snapshot.selected.length} incidents selected</strong>`
-        + `<span>from ${snapshot.sources.join(" + ")} · `
-        + `touching ${touched.size} countries</span>`);
+      // Several countries: one card each, in the order they were picked. The box keeps
+      // its size and scrolls (see setPopup).
+      setPopup(list.map(countryBlock).join(""));
     } else {
       showDetails(null);
     }
@@ -537,7 +509,7 @@ const ViewA = (() => {
     const host = d3.select("#view-a-canvas");
     // Not host.html(""): the zoom control and the details popup are children of this
     // canvas now, and emptying it would delete them along with the placeholder.
-    host.selectAll(".placeholder, svg").remove();
+    host.selectAll(".placeholder, :scope > svg").remove();
 
     state.byCode = new Map(countries.map((c) => [c.code, c]));
 
@@ -584,15 +556,19 @@ const ViewA = (() => {
       .data(features).join("path")
       .attr("class", "country")
       .attr("d", state.path)
-      .on("click", onCountryClick)
-      .append("title")
-      .text((f) => {
-        const datum = state.byNumeric.get(String(+f.id));
-        return datum
-          ? `${datum.country}: ${datum.incidents} incidents, `
-            + `${(datum.not_attributed_rate * 100).toFixed(0)}% unattributed`
-          : `${f.properties.name}: no incidents recorded`;
-      });
+      .on("click", onCountryClick);
+
+    // Hover label, kept inside the view card (tooltip.js) - the native <title> it
+    // replaces ran over View B for any country east of India.
+    Tooltip.attach(mapLayer.selectAll("path.country"), "view-a", (f) => {
+      const datum = state.byNumeric.get(String(+f.id));
+      return datum
+        ? `<strong>${Tooltip.esc(datum.country)}</strong>`
+          + `<span>${datum.incidents} incidents · `
+          + `${(datum.not_attributed_rate * 100).toFixed(0)}% unattributed</span>`
+        : `<strong>${Tooltip.esc(f.properties.name)}</strong>`
+          + "<span>no incidents recorded</span>";
+    });
 
     attachZoom(svg, width, height);
     buildZoom();

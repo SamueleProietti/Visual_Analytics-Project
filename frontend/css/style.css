@@ -1,94 +1,86 @@
-/* Threat-Shape — layout shell.
-   Phase 1 defines only the frame: the four view containers, the header status line and
-   the footer. View-specific styling arrives with each view in phases 6-9. */
+/* Threat-Shape — layout and chrome.
+
+   Design rule for this sheet: every view is a TITLE and a CHART, and nothing else.
+   Legends, the zoom control and the details popup float inside the chart, over space
+   the data leaves empty (ocean, the corners of the t-SNE cloud, the quiet early years
+   of the timeline). The instructions that used to sit under each title are in the
+   title's tooltip. Every pixel of a card below its title is therefore data. */
 
 :root {
   /* Neutral UI palette. Data-encoding colours are deliberately NOT defined here - each
      view declares its own scale next to the code that uses it, so the choice of scale
      stays next to its justification (CLAUDE.md sec.2: divergent only where a sign is
-     meaningful). */
-  --ink: #1a1a1a;
-  --ink-soft: #6b6b6b;
-  --rule: #d4d4d4;
+     meaningful). The header indigo is chrome only and appears in no data encoding. */
+  --ink: #1f2330;
+  --ink-soft: #5f6577;
+  --rule: #dadde6;
   --surface: #ffffff;
-  --surface-sunken: #fafafa;
+  --page: #e9ebf2;
+  --brand: #3f3b78;
+  --brand-ink: #ffffff;
 
   --ok: #2e7d32;
   --pending: #b26a00;
   --error: #c62828;
 
-  /* Layout is sized from the window, not from pixel constants.
+  --gap: 4px;                   /* grey between the cards and under the header */
+  --head-h: 24px;               /* view title row */
+  --radius: 6px;
 
-     Measured on the machine the demo will run on, the browser leaves about 1265 x 629
-     CSS px for the page (a high-density laptop scaled to 2x, minus browser chrome and
-     taskbar). The old layout - four 340px canvases in a 2x2 plus titles, legends and
-     generous gaps - needed about 1,000px of height, so the page scrolled and never showed
-     all four coordinated views at once. That is the one thing a coordinated-view tool
-     cannot afford: brushing the timeline while its effect on the map is scrolled off
-     screen is not coordination anyone can see.
-
-     The fixed parts of each view are therefore given fixed heights, and the chart takes
-     whatever is left. --line is one line of the 10.5px secondary text. */
-  --line: 13px;
-  --gap: 4px;
-  --head-h: 18px;                               /* view title row */
-  --sub-h: calc(2 * var(--line));               /* instructions: two lines, top row */
-  --legend-h: calc(2 * var(--line) + 4px);      /* legend: title + values, or two rows */
-
-  /* Below this the dashboard stops shrinking and the PAGE scrolls instead. Past this
-     point the charts would be too small to read, and a scrolling page is the lesser
-     failure than an unreadable one - the views themselves still never scroll. */
+  /* Below this the dashboard stops shrinking and the PAGE scrolls instead: past this
+     point the charts would be too small to read. The views themselves never scroll. */
   --grid-min-h: 520px;
 }
 
 * { box-sizing: border-box; }
 
+html, body { height: 100%; }
+
 body {
   margin: 0;
-  padding: var(--gap) var(--gap);
-  background: var(--surface-sunken);
+  background: var(--page);
   color: var(--ink);
-  font: 14px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif;
+  font: 13px/1.4 "Segoe UI", system-ui, -apple-system, sans-serif;
 }
 
-/* One column the height of the window: header, then the grid takes the rest. No width
-   cap below 2400px - the grid is proportioned against the window's HEIGHT, and capping
-   the width while the height keeps growing would squash every view on a large screen. */
+/* One column the height of the window: header, then the grid takes the rest. */
 .app-shell {
-  max-width: 2400px;
-  margin: 0 auto;
-  height: calc(100vh - 2 * var(--gap));
+  height: 100vh;
   display: flex;
   flex-direction: column;
-  gap: var(--gap);
 }
 
 /* ---------- header ---------- */
 
-/* A slim title bar, as in the reference dashboards. The previous 22px heading with its
-   margins cost about 60px of height that no chart could use. */
 .app-header {
   flex: none;
   display: flex;
   align-items: baseline;
-  gap: 14px;
+  gap: 16px;
+  padding: 5px 16px 6px;
+  background: var(--brand);
+  color: var(--brand-ink);
+  box-shadow: 0 1px 4px rgba(20, 20, 50, 0.25);
 }
 
 .app-header h1 {
   margin: 0;
-  font-size: 15px;
-  line-height: 20px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
-/* Failure banner, not a status chip. It stays hidden while the stack is healthy: a
-   permanent green "everything is fine" badge is chrome the analyst has to look past on
-   every glance, and it trains the eye to ignore the one place a real fault would appear.
-   Shown only when the backend is unreachable or the cached artifacts are missing - the
-   two states where the views would otherwise just be silently empty. */
+.app-tagline {
+  font-size: 12px;
+  opacity: 0.78;
+}
+
+/* Failure banner, not a status chip: hidden while the stack is healthy, shown only when
+   the views would otherwise just be silently empty. */
 .app-alert {
-  margin-bottom: 14px;
+  flex: none;
+  margin: var(--gap) var(--gap) 0;
   font-size: 12px;
   padding: 5px 10px;
   border-radius: 3px;
@@ -99,21 +91,14 @@ body {
 
 .app-alert--pending { color: var(--pending); background: #fffaf0; }
 
-.app-alert { flex: none; }
-
 /* ---------- view grid ---------- */
 
-/* Two by two, as in the draft mockup: A B on top, D C underneath.
-
-   This was briefly three across and the timeline full width, which measured better on
-   paper - the 2x2 gives each chart about 27% less height at a laptop's 629px and leaves
-   the t-SNE plane, which is roughly square, with spare width either side. The 2x2 was
-   chosen back anyway: every view the same size reads as four equal questions rather
-   than three plus an afterthought, it is the arrangement the approved proposal shows,
-   and the map no longer needs a wide column now that it fills whatever box it gets. */
+/* Two by two, as in the draft mockup and the approved proposal: A B on top, D C
+   underneath. Every view the same size reads as four equal questions. */
 .view-grid {
   flex: 1 1 auto;
   min-height: var(--grid-min-h);
+  padding: var(--gap);
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
@@ -128,94 +113,78 @@ body {
 .view--d { grid-area: d; }
 .view--c { grid-area: c; }
 
-/* Narrower than a tablet: one column, and the page scrolls - the views keep a readable
-   size instead of shrinking with the window. */
+/* Narrower than a tablet: one column, and the page scrolls. */
 @media (max-width: 759px) {
   .app-shell { height: auto; }
   .view-grid {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: 340px 360px 360px 260px;
+    grid-template-rows: 340px 360px 360px 280px;
     grid-template-areas: "a" "b" "d" "c";
   }
 }
 
-/* Each view is a column: fixed-height head, sub and legend, and a canvas that takes
-   exactly what is left. min-height:0 is what lets a flex child shrink below its content;
-   without it the canvas's SVG would hold the view open at its first-drawn size. */
+/* A card: fixed-height title, and a canvas that takes exactly what is left.
+   min-height:0 is what lets a flex child shrink below its content. */
 .view {
   min-height: 0;
   min-width: 0;
   display: flex;
   flex-direction: column;
   background: var(--surface);
-  border: 1px solid var(--rule);
-  border-radius: 3px;
-  /* One border, not two. The card used to be framed and the chart inside it framed
-     again, which spent four rules and about 8px per view on drawing the same edge
-     twice. The card keeps the border; the canvas below drops it. */
-  padding: 3px 6px 4px;
+  border-radius: var(--radius);
+  box-shadow: 0 1px 3px rgba(30, 30, 60, 0.12), 0 0 0 1px rgba(30, 30, 60, 0.04);
+  padding: 2px 8px 6px;
+  overflow: hidden;
 }
 
+/* Title centred, as in the reference dashboards. The side columns hold the view's one
+   control (the map toggle) or its comparison statement (the contrast header), so the
+   title stays centred whatever sits beside it. */
 .view-head {
   flex: none;
   height: var(--head-h);
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  min-width: 0;
+  column-gap: 10px;
 }
 
 .view h2 {
+  grid-column: 2;
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   line-height: var(--head-h);
   font-weight: 600;
+  color: var(--ink);
   white-space: nowrap;
+  cursor: help;               /* the title's tooltip carries the interaction hints */
 }
 
-.view-kind {
-  font-weight: 400;
-  color: var(--ink-soft);
-}
-
-/* Instructions and caveats. Fixed at two lines on the top row so the three canvases
-   start at the same height and their charts line up; clamped rather than allowed to
-   wrap into the chart. */
-.view-sub {
-  flex: none;
-  height: var(--sub-h);
-  margin: 0 0 2px;
-  font-size: 10.5px;
-  line-height: var(--line);
-  color: var(--ink-soft);
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-
-/* View D uses its two lines for two different things: the comparison first, then the
-   encoding. Each keeps its own line and is ellipsised on its own. */
-.view-sub.view-sub--split { display: flex; flex-direction: column; }
-.view-sub--split > span {
-  display: block;
+.view-head-extra {
+  grid-column: 3;
+  justify-self: end;
+  min-width: 0;
+  max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .view-canvas {
+  position: relative;          /* context for the floating legends and controls */
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Clipping is now load-bearing, not only a guard: the map is scaled to COVER this
-     box, so what falls outside is meant to be cut (CLAUDE.md sec.2 still forbids a view
-     that scrolls). */
+  /* The map is scaled to COVER this box, so what falls outside is meant to be cut
+     (CLAUDE.md sec.2 still forbids a view that scrolls). */
   overflow: hidden;
 }
+
+/* An inline <svg> sits on the text baseline and reserves a few pixels below it, enough
+   to make a fixed-height canvas scroll. display:block removes the baseline gap. */
+.view-canvas svg { display: block; }
 
 .placeholder {
   color: var(--ink-soft);
@@ -223,84 +192,135 @@ body {
   font-style: italic;
 }
 
-/* Every view carries its own legend (CLAUDE.md sec.2: a missing legend costs 2 points).
+/* ---------- legends ---------- */
 
-   Fixed height, with hidden overflow as a backstop rather than a design: verify.js
-   checks that no legend actually clips in any state, so a legend that outgrows its box
-   fails a check instead of silently losing its last row. */
+/* Every view carries its own legend (CLAUDE.md sec.2). */
 .view-legend {
+  font-size: 10px;
+  line-height: 13px;
+  color: var(--ink-soft);
+}
+
+/* A legend floating over the chart. Nearly opaque, so marks underneath cannot be read
+   as part of the key; pointer-events off so it never swallows a click or a lasso. */
+.legend-float {
+  position: absolute;
+  z-index: 2;
+  padding: 5px 8px 5px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(30, 30, 60, 0.1);
+  pointer-events: none;
+}
+
+.legend-float--bl { left: 8px; bottom: 8px; }
+.legend-float--br { right: 8px; bottom: 8px; }
+.legend-float--tl { left: 8px; top: 6px; }
+
+/* View D keeps a one-line strip under its chart: its bars fill the whole canvas, so
+   there is no empty region to float a key over. */
+.legend-strip {
   flex: none;
-  height: var(--legend-h);
-  margin-top: 3px;
+  height: 14px;
+  margin-top: 2px;
+  display: flex;
+  justify-content: center;
+  column-gap: 14px;
+  align-items: center;
+  overflow: hidden;
+}
+
+.legend-title {
+  display: block;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 10px;
+  margin-bottom: 3px;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+.legend-row {
   display: flex;
   flex-wrap: wrap;
-  align-content: flex-start;
   column-gap: 10px;
-  row-gap: 2px;
+  row-gap: 3px;
   align-items: center;
-  font-size: 10.5px;
-  line-height: var(--line);
-  color: var(--ink-soft);
-  overflow: hidden;
+}
+
+.legend-group + .legend-group { margin-top: 6px; }
+
+/* A stepped colour ramp: the classes are contiguous blocks, labelled at their
+   boundaries - it reads like a gradient but stays honest about the class breaks. */
+.ramp { display: block; }
+.ramp text { font-size: 9px; fill: var(--ink-soft); }
+.ramp .ramp-extra { fill: var(--ink-soft); }
+
+.legend-inactive { opacity: 0.5; }
+.legend-item.is-inactive { opacity: 0.5; }
+
+/* Two-column key for the timeline's six types. */
+.legend-cols {
+  display: grid;
+  grid-template-columns: auto auto;
+  column-gap: 12px;
+  row-gap: 2px;
 }
 
 /* ---------- View A: map, toggle, details ---------- */
 
-.view-head .toggle {
-  flex: none;
-  display: inline-flex;
-  gap: 0;
-}
+.toggle { display: inline-flex; }
 
 .toggle-button {
   font: inherit;
   font-size: 10.5px;
-  line-height: 14px;
-  padding: 1px 8px;
+  line-height: 15px;
+  padding: 1px 9px;
   border: 1px solid var(--rule);
   background: var(--surface);
   color: var(--ink-soft);
   cursor: pointer;
 }
 
-.toggle-button:first-child { border-radius: 3px 0 0 3px; }
-.toggle-button:last-child  { border-radius: 0 3px 3px 0; border-left: none; }
+.toggle-button:first-child { border-radius: 10px 0 0 10px; }
+.toggle-button:last-child  { border-radius: 0 10px 10px 0; border-left: none; }
 
 .toggle-button.is-active {
-  background: var(--ink);
-  border-color: var(--ink);
+  background: var(--brand);
+  border-color: var(--brand);
   color: #fff;
 }
 
 #view-a-canvas { display: block; }          /* svg fills it; no flex centring */
 
-/* An inline <svg> sits on the text baseline and reserves a few pixels below it,
-   which was enough to make the fixed-height canvas scroll - a graded violation
-   (CLAUDE.md sec.2). display:block removes the baseline gap. */
-.view-canvas svg { display: block; }
+#view-a-canvas > svg { border-radius: 4px; }
 
 .sphere {
-  fill: #f6f8fa;                            /* ocean: neutral, never a data colour */
-  stroke: var(--rule);
-  stroke-width: 0.5;
-  vector-effect: non-scaling-stroke;
+  fill: #eef3f8;                            /* ocean: neutral, never a data colour */
+  stroke: none;
 }
 
 path.country {
   cursor: pointer;
   transition: fill 120ms linear;
-  /* Borders keep their screen width as the map scales. Without this a 0.3px border at
-     8x zoom draws at 2.4px and the world turns into outlines. */
+  /* Borders keep their screen width as the map scales. */
   vector-effect: non-scaling-stroke;
 }
 
 path.country:hover { fill-opacity: 0.75; }
-
-/* The map canvas is the positioning context for the zoom control and the details
-   popup, both of which float over the geometry rather than sitting beside it. */
-#view-a-canvas { position: relative; }
-
-/* ---------- View A: zoom control ---------- */
 
 .map-zoom {
   position: absolute;
@@ -309,7 +329,7 @@ path.country:hover { fill-opacity: 0.75; }
   display: flex;
   flex-direction: column;
   gap: 3px;
-  z-index: 2;
+  z-index: 3;
 }
 
 .map-zoom button {
@@ -319,166 +339,143 @@ path.country:hover { fill-opacity: 0.75; }
   color: var(--ink);
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid var(--rule);
-  border-radius: 3px;
+  border-radius: 4px;
   cursor: pointer;
   padding: 0;
+  box-shadow: 0 1px 2px rgba(30, 30, 60, 0.1);
 }
 
 .map-zoom button:hover:not(:disabled) { background: #fff; border-color: var(--ink-soft); }
 
-/* Disabled at the limits rather than hidden: a control that stops responding with no
-   explanation reads as a bug, one that greys out reads as "you are at the end". */
+/* Disabled at the limits rather than hidden: greyed out reads as "you are at the end". */
 .map-zoom button:disabled { opacity: 0.4; cursor: default; }
 
-/* Details on demand, as a popup over the map's bottom-left corner. Absolutely
-   positioned, so revealing it cannot change the view's height - the grid must stay
-   stable when a country is clicked (CLAUDE.md sec.2: fixed-size views). */
+/* Details on demand: a FIXED box in the bottom-left corner, over the South Pacific.
+   Fixed width and height, so it covers the same stretch of open ocean whatever is
+   selected; sized for one country card, and scrolling when several are stacked in it
+   (see setPopup in viewA_map.js). Absolutely positioned, so revealing it cannot change
+   the view's height (CLAUDE.md sec.2: fixed-size views). */
 .map-popup {
   position: absolute;
-  left: 8px;
-  bottom: 8px;
-  z-index: 2;
-  /* Sized against the map canvas, which is now sized from the window. At a laptop's
-     height the canvas is about 275px, and the old 46% cap cut the popup's last lines -
-     which are the "less than expected" sectors, i.e. half of the answer. */
-  max-width: 76%;
-  max-height: 70%;
-  padding: 4px 8px;
+  left: 6px;
+  bottom: 6px;
+  z-index: 4;
+  width: 158px;
+  height: 86px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #b9bdca transparent;
+  padding: 4px 8px 5px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.96);
   border: 1px solid var(--rule);
-  border-radius: 3px;
-  /* Nearly opaque, not translucent: coastlines showing through the text would cost
-     legibility to save nothing - the popup sits over open ocean either way. */
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 2px 8px rgba(30, 30, 60, 0.16);
   font-size: 10px;
-  line-height: 1.3;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  overflow: hidden;
+  line-height: 13px;
 }
 
-/* display:flex above outranks the user-agent's [hidden]{display:none}, which is an
-   attribute selector and loses to a class. Without this the popup shows as an empty
-   white box over the map whenever it has nothing to say. */
+.map-popup::-webkit-scrollbar { width: 5px; }
+.map-popup::-webkit-scrollbar-thumb { background: #b9bdca; border-radius: 3px; }
+
+/* The user-agent's [hidden]{display:none} loses to a class selector with display set. */
 .map-popup[hidden] { display: none; }
 
-.details strong, .map-popup strong { font-size: 11px; }
-.details .hint, .map-popup .hint { color: var(--ink-soft); font-style: italic; }
-.details .pending, .map-popup .pending { color: var(--pending); }
-
-.legend-title { color: var(--ink); }
-
-.legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
+.map-popup .popup-name {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 2px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.legend-swatch {
-  width: 11px;
-  height: 11px;
-  border: 1px solid var(--rule);
-  border-radius: 2px;
-  display: inline-block;
+.map-popup dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 8px;
 }
 
-/* Title on its own line, values on the next. Inline, the title ate enough of the row
-   that the attribution layer's last class wrapped alone onto a second line - which
-   reads as a separate group rather than the tail of one scale. */
-.view-legend.is-stacked {
-  flex-direction: column;
-  flex-wrap: nowrap;
-  align-items: flex-start;
+.map-popup dt { color: var(--ink-soft); white-space: nowrap; }
+.map-popup dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* View B carries TWO scales, so its titles stay side by side and each keeps its own
-   values underneath. One run of symbols under two inline titles left the reader to work
-   out where the colour scale ended and the size scale began. */
-.view-legend.is-grouped { align-items: flex-start; flex-wrap: nowrap; column-gap: 16px; }
-
-.legend-group {
-  display: flex;
-  flex-direction: column;
-  row-gap: 2px;
+.map-popup .popup-row + .popup-row {
+  margin-top: 5px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--rule);
 }
-
-.legend-row {
-  display: flex;
-  flex-wrap: wrap;
-  column-gap: 9px;
-  row-gap: 2px;
-  align-items: center;
-}
-
-/* View B's intensity classes are single digits, so they sit tighter than the other
-   legends - which is what lets both of its scales share one row at laptop width. */
-.view--b .legend-row { column-gap: 5px; }
 
 /* ---------- View B: t-SNE scatter ---------- */
 
-circle.point {
-  cursor: crosshair;              /* hints at the lasso arriving in phase 13 */
-}
+circle.point { cursor: crosshair; }
 
 circle.point:hover {
   stroke: #1a1a1a;
   stroke-width: 1.2;
 }
 
-/* The size legend draws real circles at plot scale, so it must not inherit the
-   swatch styling used by the categorical legends. */
-.view-legend svg { vertical-align: middle; }
-
 /* ---------- View C: stacked area timeline ---------- */
 
 path.band { fill-opacity: 0.9; }
 
 /* Axes are drawn here, unlike View B, because years and counts are real quantities. */
-.axis text { font-size: 9px; fill: var(--ink-soft); }
-.axis path, .axis line { stroke: var(--rule); }
-
-/* The caveat about type occurrences vs incident counts belongs with the legend, where
-   a reader looks to decode the bands. */
-.legend-note {
-  font-style: italic;
-  color: var(--pending);
-}
+.axis text { font-size: 9.5px; fill: var(--ink-soft); }
+.axis path, .axis line { stroke: #c9ccd6; }
+.grid line { stroke: #eceef3; }
+.grid path { display: none; }
 
 /* ---------- View D: contrast panel ---------- */
 
 .panel-header {
+  font-size: 11.5px;
   font-weight: 600;
-  color: var(--ink);
+  color: var(--brand);
 }
 
 .panel-header.is-muted {
   color: var(--ink-soft);
+  font-weight: 400;
   font-style: italic;
 }
 
-/* No fill-opacity here, and no hover state. Both were wrong in the same way.
+/* Dumbbell rows: a segment between the comparison's rate and the selection's, and a
+   dot at each end. Colours and per-row opacity are set in viewD_contrast.js, because a
+   CSS declaration would outrank those presentation attributes. */
+.dumbbell { stroke-width: 3; stroke-linecap: round; }
+.dumbbell.is-unreliable-link { stroke-dasharray: 3 2; }
+.dot-comparison { stroke-width: 1.4; }
+.row-hit { fill: transparent; }        /* hover target: the dumbbell and its dots */
 
-   The hover darkened a bar as if it could be clicked; nothing happens on a click - the
-   bars answer a question, they do not ask one - so it promised an interaction that does
-   not exist. The only thing a bar does on hover is show its native tooltip with the full
-   label and figures, which needs no visual invitation.
+/* Table rules between rows: faint enough to separate without competing with the data. */
+.row-rule { stroke: #e7e9f0; stroke-width: 1; }
 
-   The base rule was worse. fill-opacity is set per bar in viewD_contrast.js - 0.4 for a
-   feature that fails the validity test - and a CSS declaration outranks a presentation
-   attribute, so this rule painted every unreliable bar at 0.88 like the rest. The legend
-   said "faded, dashed bars fail the validity test"; they were dashed, never faded. */
+/* The dimension a group of rows answers: who attacks, what kind of attack, and so on.
+   Lighter and smaller than the row labels - it is a signpost, not a finding. */
+.dim-header {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  fill: var(--ink-soft);
+}
 
 .bar-label { font-size: 10px; fill: var(--ink); }
 .z-value   { font-size: 9px;  fill: var(--ink-soft); }
-/* The difference is the number the bar's length encodes, so it reads in ink; the z,
-   which only orders the bars, stays secondary. */
 .z-value .pp-value { fill: var(--ink); font-weight: 600; }
 
-.zero-line { stroke: var(--ink); stroke-width: 1; }
-
-/* Fabricated demo data must be unmistakable - a plausible-looking chart of invented
-   numbers is worse than no chart. */
+/* Fabricated demo data must be unmistakable. */
 .demo-stamp {
   font-size: 30px;
   font-weight: 700;
@@ -488,10 +485,9 @@ path.band { fill-opacity: 0.9; }
   pointer-events: none;
 }
 
-/* ---------- Phase 11: coordination ---------- */
+/* ---------- coordination ---------- */
 
-/* The lasso outline. Dashed so it reads as a transient gesture rather than a drawn
-   object that stays on the plot. */
+/* The lasso outline. Dashed so it reads as a transient gesture. */
 path.lasso {
   fill: rgba(106, 81, 163, 0.08);
   stroke: #6a51a3;
@@ -500,63 +496,29 @@ path.lasso {
   pointer-events: none;
 }
 
-/* Unselected points fade instead of disappearing: a selection is only interpretable
-   against the shape of the whole corpus. */
 circle.point.is-dimmed { pointer-events: none; }
 
-/* View C keeps the full series behind the selection as pale context, so a shrinking
-   band can be compared with what it was. */
+/* View C keeps the full series behind the selection as pale context. */
 path.band.is-context { fill-opacity: 0.16; }
 path.band-selected { fill-opacity: 0.95; pointer-events: none; }
 
-/* d3.brushX paints its own overlay; tone it down so the bands stay readable. */
 .brush .selection { fill: #1a1a1a; fill-opacity: 0.07; stroke: #6b6b6b; }
 
-/* ---------- Phase 12: residual layer ---------- */
+/* ---------- residual layer ---------- */
 
-/* Unreliable cells are marked, never hidden: sec.6.1 asks for a badge instead of a
-   suppressed value. Diagonal hatching reads as "treat with caution" without changing
-   the fill, so the residual itself stays legible underneath. */
-/* Dash pattern ONLY. The colour and the width are set in draw(), because a CSS
-   declaration outranks a presentation attribute: setting the stroke colour here erased
-   the black border of a country the analyst had clicked, whenever that country's
-   residual was unreliable - which on a residual map is most of them. Dash carries
-   reliability, colour carries selection, and neither overwrites the other. */
-path.country.is-unreliable {
-  stroke-dasharray: 2 2;
-}
+/* Unreliable cells are marked, never hidden (sec.6.1). Dash pattern ONLY: colour and
+   width are set in draw(), because a CSS declaration outranks a presentation attribute
+   and would erase the black border of a selected country. */
+path.country.is-unreliable { stroke-dasharray: 2 2; }
 
 .legend-swatch.is-unreliable-swatch {
   background: repeating-linear-gradient(45deg, #ffffff 0 3px, #9a9a9a 3px 4px);
 }
 
-.details .badge, .map-popup .badge {
-  font-style: normal;
-  font-size: 10px;
-  padding: 0 4px;
-  border-radius: 2px;
-  background: #fdf0d5;
-  color: var(--pending);
-  border: 1px solid #e8cfa0;
-}
-
-.details .sectors, .map-popup .sectors { color: var(--ink-soft); }
-
-/* Names the comparison the two sector lines are against. Without it "more than
-   expected" leaves the reader to guess "expected by whom" - and the answer, the global
-   sector mix, is the whole basis of the number. */
-.map-popup .sectors-head {
-  margin-top: 3px;
-  color: var(--ink);
-  font-size: 10px;
-  text-transform: lowercase;
-}
-
-/* ---------- Phase 13: local re-projection ---------- */
+/* ---------- local re-projection ---------- */
 
 /* The banner must be impossible to miss: a local layout and the global one look alike,
-   but their axes mean different things, and mistaking one for the other is the single
-   most damaging misreading View B allows. */
+   but their axes mean different things. */
 .banner-bg.is-local { fill: #6a51a3; fill-opacity: 0.92; }
 .banner-bg.is-busy  { fill: #b26a00; fill-opacity: 0.92; }
 .banner-bg.is-warn  { fill: #b26a00; fill-opacity: 0.92; }
@@ -570,15 +532,70 @@ path.country.is-unreliable {
   pointer-events: none;
 }
 
-/* Contrast bars that fail the two-proportion validity test: shown, faded and marked,
-   never removed - sec.6.1's rule applied to 6.3. */
-rect.bar.is-unreliable-bar { stroke: #8a8a8a; stroke-width: 0.8; stroke-dasharray: 2 2; }
 
-/* View D's legend is shown before any bars exist, so the reader knows what the panel
-   will answer. Dimmed, because it describes an encoding that is not yet in use - a
-   legend at full strength beside an empty chart would imply there is something to read. */
-.legend-item.is-inactive { opacity: 0.5; }
 
-/* View D's legend: the two swatches on the first line, the validity note on the second.
-   The note is forced onto its own line here only - elsewhere a note sits inline. */
-.view--d .legend-note { flex-basis: 100%; }
+/* View A: the off-scale swatches sit level with the ramp's bar, not its labels. */
+.legend-row--ramp { align-items: flex-start; column-gap: 8px; flex-wrap: nowrap; }
+.legend-row--ramp .legend-item { line-height: 10px; }
+.legend-title--inline { display: inline; margin: 0 2px 0 0; line-height: 10px; }
+
+/* View D keeps the previous contrast on screen, faded, while the next one computes. */
+#view-d-canvas svg.is-stale { opacity: 0.45; transition: opacity 120ms linear; }
+
+/* View A's legend: bottom right, the same 6px from the right edge as from the bottom,
+   so it reads as anchored to the corner. It may clip the tip of New Zealand's South
+   Island at laptop size - accepted for a legend that sits where the eye expects it. */
+.legend-float--map { right: 6px; bottom: 6px; }
+
+/* View B's key holds a ramp with labels and circles up to 16px across, so its line
+   is taller than View C's swatch row. Each half is a title beside its scale. */
+.legend-strip--tall { height: 20px; }
+.legend-strip--tall > .legend-item { gap: 6px; align-items: center; }
+
+/* View C's key spread along the full length of the time axis. */
+.legend-strip--spread { justify-content: space-between; column-gap: 8px; padding: 0 4px; }
+
+/* ---------- hover tooltips (tooltip.js) ---------- */
+
+/* The card is the tooltip's positioning context and its boundary. */
+.view { position: relative; }
+
+.tooltip {
+  position: absolute;
+  z-index: 10;
+  max-width: 280px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  background: rgba(28, 30, 42, 0.94);
+  color: #f2f3f7;
+  font-size: 10.5px;
+  line-height: 1.35;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  pointer-events: none;           /* never steals the hover or the click it describes */
+}
+
+.tooltip[hidden] { display: none; }
+.tooltip strong { display: block; font-weight: 600; margin-bottom: 2px; color: #fff; }
+.tooltip span { display: block; color: #c9ccd8; }
+
+/* The sector gets a full-width line of its own: squeezed beside the counts' labels it
+   was cut to "Critic…". */
+.map-popup dt.is-wide, .map-popup dd.is-wide { grid-column: 1 / -1; text-align: left; }
+
+/* ---------- View C: legend highlight and rescaled axis ---------- */
+
+/* The legend entries are a display control: they dim the other bands and write nothing
+   to the selection store, so no analytic can start from them (CLAUDE.md sec.2). */
+.legend-item.is-clickable { cursor: pointer; }
+.legend-item.is-faded { opacity: 0.35; }
+.legend-item.is-locked { font-weight: 700; color: var(--ink); }
+
+/* Dimmed, never hidden: a band only means something in its place in the stack. */
+path.band.is-faded, path.band-selected.is-faded { fill-opacity: 0.12; }
+
+/* Names the axis when it is no longer the corpus-wide one, and keeps the global peak
+   on screen as a number. It sits in the title row, where no band can cover it. */
+.scale-note {
+  font-size: 10px;
+  color: var(--ink-soft);
+}

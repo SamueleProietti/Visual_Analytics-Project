@@ -75,27 +75,46 @@ const SelectionStore = (() => {
 
   // ---------------------------------------------------------------------------------
   // mutations - each names its origin, so a view can ignore echoes of its own action
+  //
+  // A mutation that leaves the state as it was publishes NOTHING. A notification wakes
+  // every subscriber, and a subscriber cannot tell "the selection changed" from "someone
+  // said the same thing again": a plain click on the timeline, which clears a brush that
+  // did not exist, made View D refetch and flash its contrast, and made View B drop a
+  // local re-projection because the (non-)change came from another view. Guarding here,
+  // once, stops every such echo instead of patching each gesture that can produce one.
+
+  const sameList = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+  const sameSet = (a, b) => (a === null || b === null ? a === b
+    : a.size === b.size && [...a].every((v) => b.has(v)));
+  const sameRange = (a, b) => (a === null || b === null ? a === b
+    : a[0] === b[0] && a[1] === b[1]);
 
   function setCountries(codes, { additive = false } = {}) {
     const next = additive ? new Set(state.countries) : new Set();
     for (const code of codes) {
       additive && next.has(code) ? next.delete(code) : next.add(code);
     }
+    if (sameList([...next], state.countries)) return;
     state.countries = [...next];
     notify("map");
   }
 
   function setLasso(incidentIds) {
-    state.lasso = incidentIds && incidentIds.size ? new Set(incidentIds) : null;
+    const next = incidentIds && incidentIds.size ? new Set(incidentIds) : null;
+    if (sameSet(next, state.lasso)) return;
+    state.lasso = next;
     notify("projection");
   }
 
   function setYearRange(range) {
-    state.yearRange = range ? [Math.min(...range), Math.max(...range)] : null;
+    const next = range ? [Math.min(...range), Math.max(...range)] : null;
+    if (sameRange(next, state.yearRange)) return;
+    state.yearRange = next;
     notify("timeline");
   }
 
   function clear() {
+    if (isEmpty()) return;
     state = { countries: [], lasso: null, yearRange: null };
     notify("clear");
   }

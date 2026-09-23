@@ -81,7 +81,8 @@ class CountrySummary(BaseModel):
     code: str = Field(description="ISO 3166-1 alpha-2")
     country: str
     observations: int
-    incidents: int
+    incidents: int = Field(description="Incidents in which the country is a receiver")
+    initiated: int = Field(description="Incidents in which the country is the named initiator")
     top_sector: str
     top_sector_count: int
     not_attributed_rate: float

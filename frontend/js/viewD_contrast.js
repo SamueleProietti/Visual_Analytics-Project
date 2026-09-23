@@ -1,20 +1,32 @@
-/* View D — contrast panel, divergent horizontal bars.
+/* View D — contrast panel: what makes this selection different, as a profile.
  *
- * Phase 9 scope: the layout only. Nothing here computes a contrast - analytics 6.3
- * arrives in phase 14, and CLAUDE.md sec.6 forbids any result existing before a
- * selection does. On load the panel shows its prompt and nothing else.
+ * Analytics 6.3 computes a two-proportion z-test for each of the 123 indicators. This
+ * view decides which of them an analyst actually reads, and how.
  *
- * TWO QUANTITIES, NOT ONE. CLAUDE.md sec.5 asks for "bar length = magnitude, vertical
- * order = |z-score| (reliability), not magnitude", and the proposal for features
- * "ranked by reliability, with bar length showing magnitude". Those are only
- * non-contradictory if length and order encode different things:
+ * THREE DESIGN DECISIONS, each answering a way the earlier flat bar chart failed:
  *
- *   length = the raw difference in proportion (effect size, in percentage points)
- *   order  = |z-score| (how much the sample size lets us trust that difference)
+ * 1. READABLE LABELS. The indicators are named after the EuRepoC columns they come
+ *    from - "issue: System / ideology", "iimpact: Minor data breach/exfilt…". Those are
+ *    two layers of jargon: an internal block prefix and a codebook category. BLOCKS
+ *    below translates every block into the question it answers, and the row's tooltip
+ *    carries the codebook definition, so nothing has to be memorised.
  *
- * A feature that differs hugely across six incidents gets a long bar but sinks to the
- * bottom of the list. That separation is the whole point of the panel: it stops the
- * analyst from reading a dramatic-looking bar as a dependable finding.
+ * 2. GROUPED INTO A PROFILE. The 14 blocks are 14 different questions, and ranking them
+ *    together by |z| produced a list where four of the eight rows were the same finding
+ *    seen from four angles ("more data theft") while nothing at all was said about who
+ *    the attacker was. The blocks are gathered into the six questions an analyst asks -
+ *    who, what, against whom, how, with what effect, why - and each contributes its
+ *    strongest one or two indicators. The result is a profile with no gaps and no
+ *    repetitions. Within a dimension the order is still reliability then |z|, as
+ *    CLAUDE.md sec.5 requires; the grouping decides WHICH features are shown, the
+ *    ranking decides the order they are shown in.
+ *
+ * 3. TWO PROPORTIONS, NOT ONE DIFFERENCE (dumbbell). "+22.7pp" does not say from what
+ *    to what: 31% against 8% and 80% against 57% draw the same bar and mean very
+ *    different things. Each row now shows both rates as two dots joined by a segment:
+ *    position on a common scale for the levels - the most accurate encoding the course
+ *    material lists - and the segment's LENGTH for the effect size, which is what the
+ *    old bar encoded. Colour still carries the sign, order still carries |z|.
  */
 
 "use strict";
@@ -26,25 +38,128 @@ const ViewD = (() => {
   // colour-vision deficiencies, unlike red/green.
   const OVER = "#b2182b";    // more frequent in the selection than in the comparison
   const UNDER = "#2166ac";   // less frequent
-  // How many features to show is decided by the panel's height, not fixed. The canvas
-  // is sized from the window now: at a laptop's height nine bars is what fits, and on a
-  // 1080p screen a fixed nine drew bars twice as thick as they needed to be while
-  // hiding the next five features. One band per 26px keeps bars comfortably readable.
-  const BAND_PX = 26;
-  const MIN_BARS = 6;
-  const MAX_BARS = 14;
+  const COMPARISON = "#6b7180";   // the comparison group's dot: neutral, never a sign
 
-  // The label gutter never takes more than 45% of the panel. At 168px fixed it left a
-  // narrow panel with almost no room for the bars, which are the actual answer.
-  const MARGIN = { top: 6, right: 92, bottom: 18, left: 168 };
-  const GUTTER_SHARE = 0.45;
+  /* The 14 one-hot blocks, each with the question it answers and what its categories
+   * mean. `short` is what the row label says; `definition` is what the tooltip says.
+   * The source column is named because it is the link back to the EuRepoC codebook. */
+  const BLOCKS = {
+    init: { dim: "who", short: "actor type", source: "initiator_category",
+      definition: "What kind of actor is named as the initiator: a state, a "
+        + "state-affiliated group, a non-state group, an individual - or nobody." },
+    stateresp: { dim: "who", short: "state responsibility",
+      source: "state_responsibility_actor",
+      definition: "How directly a state is held responsible: members of state agencies "
+        + "acting themselves, a state knowingly sanctioning or supporting non-state "
+        + "actors, or no state involvement." },
+    type: { dim: "what", short: "operation", source: "incident_type",
+      definition: "What kind of operation the incident was: data theft, disruption, "
+        + "hijacking, ransomware, doxing." },
+    impact: { dim: "what", short: "technique", source: "mitre_impact",
+      definition: "MITRE ATT&CK impact technique: what the attacker did to the target "
+        + "once inside - exfiltrate, encrypt, wipe, deface, deny service." },
+    hijack: { dim: "what", short: "hijacking severity", source: "hijacking",
+      definition: "Whether systems were taken over, and whether the attacker then "
+        + "misused them. One of the components of EuRepoC's intensity score." },
+    target: { dim: "target", short: "sector", source: "receiver_category",
+      definition: "What kind of entity was targeted: critical infrastructure, "
+        + "corporate, state institutions, media, science, end users." },
+    access: { dim: "how", short: "initial access", source: "mitre_initial_access",
+      definition: "MITRE ATT&CK initial-access technique: how the attacker first got "
+        + "in - phishing, a public-facing application, a supply chain, valid accounts." },
+    fimpact: { dim: "effect", short: "downtime", source: "functional_impact",
+      definition: "How long the target's systems were disrupted, from no interference "
+        + "at all to months." },
+    iimpact: { dim: "effect", short: "data impact", source: "intelligence_impact",
+      definition: "How much data was breached, exfiltrated, corrupted or leaked." },
+    dtheft: { dim: "effect", short: "data theft severity", source: "data_theft",
+      definition: "Whether data was stolen and whether it was sensitive. One of the "
+        + "components of EuRepoC's intensity score." },
+    disrupt: { dim: "effect", short: "disruption severity", source: "disruption",
+      definition: "Whether services were disrupted and for how long (under or over 24 "
+        + "hours). One of the components of EuRepoC's intensity score." },
+    issue: { dim: "why", short: "cyber conflict issue", source: "cyber_conflict_issue",
+      definition: "What the conflict between attacker and target is about, in the "
+        + "categories used for armed conflicts: territory, secession, autonomy, "
+        + "political system or ideology, national or international power, resources." },
+    oissue: { dim: "why", short: "offline conflict issue",
+      source: "offline_conflict_issue",
+      definition: "The issue of the real-world conflict the incident is part of, in the "
+        + "same categories. Set when the incident belongs to an offline dispute." },
+    ilaw: { dim: "why", short: "international law", source: "il_breach_indicator",
+      definition: "Which area of international law the incident touches: sovereignty, "
+        + "non-intervention, human rights, armed conflict, espionage, and others." },
+  };
 
-  // Explains the faded, dashed bars - which the legend did not cover at all before.
-  const VALIDITY_NOTE = "faded, dashed bars fail the validity test";
+  /* The six questions a threat-intelligence analyst asks of a profile, in reading
+   * order. A dimension with nothing to show is skipped rather than shown empty. */
+  const DIMENSIONS = [
+    { key: "who", title: "WHO ATTACKS" },
+    { key: "what", title: "WHAT KIND OF ATTACK" },
+    { key: "target", title: "AGAINST WHOM" },
+    { key: "how", title: "HOW THEY GET IN" },
+    { key: "effect", title: "WITH WHAT EFFECT" },
+    { key: "why", title: "WHY" },
+  ];
+
+  const PER_DIMENSION = 2;        // at most; reduced to 1 when the panel is short
+  const ROW_H = 21;
+  const HEADER_H = 15;
+  const DOT_R = 4;
+
+  // The label gutter never takes more than half the panel. Wider than the old bar
+  // chart's: a row label now names the block AND the category ("cyber conflict issue ·
+  // System / ideology"), which is the whole point of the relabelling.
+  const MARGIN = { top: 4, right: 86, bottom: 18, left: 210 };
+  const GUTTER_SHARE = 0.52;
+
+  // column -> {block, atom}, from /api/features. Set once at startup by main.js: the
+  // contrast response carries the column name, and this is what turns it into a block
+  // (which dimension it belongs to) and an atom (the category itself).
+  let featureIndex = new Map();
+
+  function setFeatureBlocks(features) {
+    featureIndex = new Map((features || []).map(
+      (f) => [f.column, { block: f.block, atom: f.atom }]));
+  }
+
+  /** The codebook category, trimmed of the notes EuRepoC writes inside brackets -
+   * "Short-term disruption (< 24h; incident scores 1 point in intensity)" is a
+   * definition, not a name. The full text stays in the tooltip. */
+  function shortAtom(atom) {
+    return String(atom || "").replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+  }
+
+  function decorate(item) {
+    const entry = featureIndex.get(item.column) || {};
+    const meta = BLOCKS[entry.block];
+    // A block with no entry here is shown under its own name rather than hidden: a new
+    // indicator must never disappear from the panel just because this table is stale.
+    return Object.assign({}, item, {
+      block: entry.block,
+      atom: entry.atom || item.label,
+      dim: meta ? meta.dim : "what",
+      rowLabel: meta
+        ? `${meta.short} · ${shortAtom(entry.atom)}`
+        : item.label,
+    });
+  }
+
+  /** Split the stated comparison into the two group names the tooltip reports.
+   *
+   * The store writes the mode out in full - `"US" vs rest of world`, `"IT" vs "FR"` -
+   * and it is the same string the panel header shows, so the tooltip cannot disagree
+   * with the header about who is being compared with whom. */
+  function groupNames(mode) {
+    const unquote = (part) => String(part || "").trim().replace(/^"|"$/g, "");
+    const at = String(mode || "").lastIndexOf(" vs ");
+    if (at < 0) return [unquote(mode), "comparison group"];
+    return [unquote(mode.slice(0, at)), unquote(mode.slice(at + 4))];
+  }
 
   function setHeader(text, muted = false) {
     d3.select("#view-d-header")
-      .attr("class", muted ? "panel-header is-muted" : "panel-header")
+      .attr("class", "view-head-extra panel-header" + (muted ? " is-muted" : ""))
       .text(text);
   }
 
@@ -52,45 +167,50 @@ const ViewD = (() => {
    *
    * The legend stays populated even with nothing to plot. Leaving it blank read as a
    * missing legend - the thing CLAUDE.md sec.2 penalises - when in fact there was simply
-   * nothing yet to decode. Showing the encoding before the bars exist also tells the
-   * analyst what the panel is going to answer, without asserting any result.
+   * nothing yet to decode.
    */
   function showEmpty(reason) {
     d3.select("#view-d-canvas").html(
       `<span class="placeholder">${reason || "select a country or lasso a cluster"}</span>`);
     setHeader("no selection", true);
+    renderLegend(true);
+  }
 
-    const legend = d3.select("#view-d-legend");
-    legend.selectAll("*").remove();
-    for (const [colour, text] of [[OVER, "more frequent in selection"],
-                                  [UNDER, "less frequent in selection"]]) {
-      const item = legend.append("span").attr("class", "legend-item is-inactive");
-      item.append("span").attr("class", "legend-swatch").style("background", colour);
-      item.append("span").text(text);
+  /**
+   * Choose what to draw: the strongest indicators of each dimension, in reading order.
+   *
+   * Reliability first, then |z| - the backend's own ranking - applied WITHIN each
+   * dimension. The panel then always answers all six questions rather than repeating
+   * the loudest one, and a dimension that has nothing reliable to say still shows its
+   * best evidence, flagged.
+   */
+  function pickByDimension(items, perDimension) {
+    const groups = [];
+    for (const dimension of DIMENSIONS) {
+      const rows = items
+        .filter((d) => d.dim === dimension.key)
+        .sort((a, b) => (a.reliable === false) - (b.reliable === false)
+          || Math.abs(b.z) - Math.abs(a.z))
+        .slice(0, perDimension);
+      if (rows.length) groups.push({ title: dimension.title, rows });
     }
-    // The encoding itself ("bar length = difference · order = |z|") is the panel's
-    // subtitle, so it is not repeated here; the legend keeps what only it explains.
-    legend.append("span").attr("class", "legend-note").text(VALIDITY_NOTE);
+    return groups;
+  }
+
+  /** Total height a set of groups needs, headers included. */
+  function heightOf(groups) {
+    return groups.reduce((sum, g) => sum + HEADER_H + g.rows.length * ROW_H, 0);
   }
 
   /**
    * Draw a contrast. Called by phase 14 with real z-scores; never on load.
    *
-   * @param {Array} items  {label, difference, z, nSelection, nComplement}
-   *                       difference is a signed proportion difference in [-1, 1]
+   * @param {Array} items  {column, label, difference, z, pSelection, pComparison, ...}
    * @param {string} mode  the comparison, stated in full - "Italy vs rest of world"
    */
-  function render(items, mode, note) {
+  function render(items, mode) {
     if (!items || !items.length) return showEmpty("nothing to contrast");
 
-    // Reliability decides who is shown and in what order; magnitude only sets length.
-    //
-    // The `reliable` term is not optional. Sorting on |z| alone re-broke what the
-    // backend had already ordered correctly, putting a 2.3pp difference that fails the
-    // two-proportion validity test above a 21.7pp one that passes - because a z
-    // computed where the normal approximation does not hold can be arbitrarily large.
-    // Unreliable features stay in the list, flagged; they just do not take the
-    // positions the eye reads first.
     const host = d3.select("#view-d-canvas");
     host.html("");
     const width = host.node().clientWidth;
@@ -99,101 +219,182 @@ const ViewD = (() => {
     const innerW = width - left - MARGIN.right;
     const innerH = height - MARGIN.top - MARGIN.bottom;
 
-    const bars = Math.max(MIN_BARS, Math.min(MAX_BARS, Math.floor(innerH / BAND_PX)));
-    const ranked = [...items]
-      .sort((a, b) => (a.reliable === false) - (b.reliable === false)
-        || Math.abs(b.z) - Math.abs(a.z))
-      .slice(0, bars);
+    // Two per dimension when the panel is tall enough, one when it is not: twelve rows
+    // squeezed into a laptop's panel would be thinner than the dots they carry.
+    const decorated = items.map(decorate);
+    let groups = pickByDimension(decorated, PER_DIMENSION);
+    if (heightOf(groups) > innerH) groups = pickByDimension(decorated, 1);
+    // Still too tall (a very short window): drop whole dimensions from the weakest end,
+    // so what remains is complete rather than half-drawn.
+    while (groups.length > 1 && heightOf(groups) > innerH) groups.pop();
 
-    // Symmetric domain so that equal magnitudes in either direction draw equal bars -
-    // an asymmetric axis would make one side look systematically stronger.
-    const extent = d3.max(ranked, (d) => Math.abs(d.difference)) || 0.01;
-    const x = d3.scaleLinear().domain([-extent, extent]).range([0, innerW]).nice();
-    const y = d3.scaleBand().domain(ranked.map((d) => d.label))
-      .range([0, innerH]).padding(0.22);
+    const rows = [];
+    let y = 0;
+    for (const group of groups) {
+      rows.push({ header: group.title, y: y + HEADER_H - 4 });
+      y += HEADER_H;
+      for (const row of group.rows) {
+        rows.push({ row, y: y + ROW_H / 2 });
+        y += ROW_H;
+      }
+    }
+    const featureRows = rows.filter((r) => r.row);
+    // The last row gets no rule beneath it: a table is closed by its last entry, and a
+    // line there would read as the start of a section that never comes.
+    featureRows[featureRows.length - 1].isLast = true;
+    const drawn = featureRows.map((r) => r.row);
+
+    // Proportions on a common scale from zero: the reader compares levels, so the axis
+    // must start at zero, and it stops just past the largest rate shown rather than at
+    // 100% - a panel where every rate is under 40% would otherwise use a third of its
+    // width.
+    const maxRate = d3.max(drawn, (d) => Math.max(d.pSelection, d.pComparison)) || 0.1;
+    const x = d3.scaleLinear().domain([0, maxRate]).range([0, innerW]).nice();
 
     const svg = host.append("svg").attr("width", width).attr("height", height)
       .attr("role", "img").attr("aria-label", "Contrast panel: " + mode);
     const plot = svg.append("g")
       .attr("transform", `translate(${left},${MARGIN.top})`);
 
-    plot.selectAll("rect.bar").data(ranked).join("rect")
-      .attr("class", "bar")
-      .attr("x", (d) => (d.difference >= 0 ? x(0) : x(d.difference)))
-      .attr("y", (d) => y(d.label))
-      .attr("width", (d) => Math.abs(x(d.difference) - x(0)))
-      .attr("height", y.bandwidth())
-      .attr("fill", (d) => (d.difference >= 0 ? OVER : UNDER))
-      .attr("fill-opacity", (d) => (d.reliable === false ? 0.4 : 0.88))
-      .classed("is-unreliable-bar", (d) => d.reliable === false)
-      .append("title")
-      .text((d) => `${d.label}\n`
-        + `${(d.difference * 100).toFixed(1)} percentage points\n`
-        + `z = ${d.z.toFixed(2)}`
-        + (d.nSelection != null ? `\nn = ${d.nSelection} in selection` : ""));
+    // The column rule: the same hairline as the row rules, separating the names from
+    // the chart. With it the panel reads as a table - a text column and a plot column -
+    // rather than as labels floating beside marks.
+    plot.append("line")
+      .attr("class", "row-rule")
+      .attr("x1", -6).attr("x2", -6).attr("y1", 0).attr("y2", y);
 
-    // Labels are shortened to fit the gutter, with the full text in a tooltip. They used
-    // to be drawn at full length and run off the left edge of the canvas, where the
-    // clipping cut the START of the label - the block name ("impact:", "issue:") that
-    // says what kind of feature it is.
-    const labels = plot.selectAll("text.bar-label").data(ranked).join("text")
+    // Dimension headers: they are what turns a list into a profile.
+    plot.selectAll("text.dim-header").data(rows.filter((r) => r.header)).join("text")
+      .attr("class", "dim-header")
+      .attr("x", -left + 2).attr("y", (d) => d.y)
+      .text((d) => d.header);
+
+    const rowG = plot.selectAll("g.row").data(rows.filter((r) => r.row)).join("g")
+      .attr("class", "row")
+      .attr("transform", (d) => `translate(0,${d.y})`)
+      // Faded when the two-proportion validity test fails: shown and marked, never
+      // removed - sec.6.1's rule applied to 6.3.
+      .attr("opacity", (d) => (d.row.reliable === false ? 0.45 : 1));
+
+    // A rule under every row, drawn across the label gutter and the plot together, so
+    // the panel reads as a table: the eye follows one row from its name to its dots
+    // without drifting onto the neighbouring one.
+    rowG.filter((d) => !d.isLast).append("line")
+      .attr("class", "row-rule")
+      .attr("x1", -left).attr("x2", innerW + MARGIN.right - 6)
+      .attr("y1", ROW_H / 2).attr("y2", ROW_H / 2);
+
+    // The segment IS the difference: its length is the effect size the old bar drew.
+    rowG.append("line")
+      .attr("class", "dumbbell")
+      .classed("is-unreliable-link", (d) => d.row.reliable === false)
+      .attr("x1", (d) => x(d.row.pComparison)).attr("x2", (d) => x(d.row.pSelection))
+      .attr("y1", 0).attr("y2", 0)
+      .attr("stroke", (d) => (d.row.difference >= 0 ? OVER : UNDER));
+
+    // Hollow dot: the comparison group. Filled dot: the selection. Same shape, so the
+    // pair reads as one measurement taken twice, not as two different quantities.
+    rowG.append("circle")
+      .attr("class", "dot-comparison")
+      .attr("cx", (d) => x(d.row.pComparison)).attr("r", DOT_R - 0.5)
+      .attr("fill", "#ffffff").attr("stroke", COMPARISON);
+
+    rowG.append("circle")
+      .attr("class", "dot-selection")
+      .attr("cx", (d) => x(d.row.pSelection)).attr("r", DOT_R)
+      .attr("fill", (d) => (d.row.difference >= 0 ? OVER : UNDER));
+
+    // Left aligned, flush with the dimension headers: one column of text with a single
+    // starting edge. Right aligned against the plot, every group started at a different
+    // x and the grouping was hard to see.
+    const LABEL_X = -left + 2;
+    const labels = rowG.append("text")
       .attr("class", "bar-label")
-      .attr("x", -6).attr("y", (d) => y(d.label) + y.bandwidth() / 2)
-      .attr("dy", "0.35em").attr("text-anchor", "end")
-      .text((d) => d.label);
+      .attr("x", LABEL_X).attr("dy", "0.35em")
+      .text((d) => d.row.rowLabel);
     labels.each(function fit(d) {
       const node = this;
-      const room = left - 10;
+      const room = left - 2 - 10;
       if (node.getComputedTextLength() <= room) return;
-      let text = d.label;
+      let text = d.row.rowLabel;
       while (text.length > 4 && node.getComputedTextLength() > room) {
         text = text.slice(0, -2);
         node.textContent = text + "…";
       }
     });
-    labels.append("title").text((d) => d.label);
 
-    // z printed next to each bar: the ranking key must be legible, not just implied by
-    // position, or the reader cannot tell a solid finding from a marginal one.
-    // Both numbers, side by side: the difference that sets the bar's LENGTH, then the z
-    // that sets its POSITION. Showing z alone invited the natural misreading that length
-    // is z - a +20.9pp bar and a +20.4pp bar at the same z = 2.6 then look inconsistent,
-    // and a z of 2.6 looks like it should be half a z of 6.0. They are two quantities:
-    // z divides the difference by its standard error, which depends on the sample size
-    // and on the base rate - a feature near 50% prevalence is the noisiest a proportion
-    // can be, so the same difference earns a smaller z there. Printing the pp value makes
-    // the length readable as what it is.
-    const values = plot.selectAll("text.z-value").data(ranked).join("text")
+    // The two numbers that are not positions: the gap in percentage points, which the
+    // segment's length encodes, and the z, which decides the order. z divides the
+    // difference by its standard error, so the same gap earns a smaller z on fewer
+    // incidents or near a 50% base rate - printing both stops the reader from taking
+    // length for significance.
+    const values = rowG.append("text")
       .attr("class", "z-value")
-      .attr("x", innerW + 6).attr("y", (d) => y(d.label) + y.bandwidth() / 2)
-      .attr("dy", "0.35em");
+      .attr("x", innerW + 6).attr("dy", "0.35em");
     values.append("tspan").attr("class", "pp-value")
-      .text((d) => `${d.difference > 0 ? "+" : ""}${(d.difference * 100).toFixed(1)}pp`);
+      .text((d) => `${d.row.difference > 0 ? "+" : ""}`
+        + `${(d.row.difference * 100).toFixed(1)}pp`);
     values.append("tspan")
-      .text((d) => `  z ${d.z.toFixed(1)}${d.reliable === false ? " ⚠" : ""}`);
+      .text((d) => `  z ${d.row.z.toFixed(1)}${d.row.reliable === false ? " ⚠" : ""}`);
 
-    plot.append("line").attr("class", "zero-line")
-      .attr("x1", x(0)).attr("x2", x(0)).attr("y1", 0).attr("y2", innerH);
+    // The hover target is the DUMBBELL, not the whole row: the tooltip reports the two
+    // rates, which is what the two dots and the segment between them encode, so it
+    // belongs to that mark. Stretched across the row it also fired over the label and
+    // the numbers, where nothing was being pointed at.
+    const PAD = DOT_R + 3;
+    const hit = rowG.append("rect")
+      .attr("class", "row-hit")
+      .attr("x", (d) => Math.min(x(d.row.pSelection), x(d.row.pComparison)) - PAD)
+      .attr("y", -ROW_H / 2 + 2)
+      .attr("width", (d) => Math.abs(x(d.row.pSelection) - x(d.row.pComparison)) + 2 * PAD)
+      .attr("height", ROW_H - 4);
+
+    // The tooltip says the one thing the two dots cannot: the exact rates, named after
+    // the groups they belong to. Everything else it used to carry is already on screen -
+    // the label on the left, the gap and the z on the right.
+    const [selectionName, comparisonName] = groupNames(mode);
+    Tooltip.attach(hit, "view-d", (d) => {
+      const pSel = (d.row.pSelection * 100).toFixed(1);
+      const pComp = (d.row.pComparison * 100).toFixed(1);
+      return `<span>selection: ${Tooltip.esc(selectionName)} `
+        + `${pSel}% (${d.row.nSelection})</span>`
+        + `<span>comparison: ${Tooltip.esc(comparisonName)} `
+        + `${pComp}% (${d.row.nComparison})</span>`;
+    });
 
     plot.append("g").attr("class", "axis")
       .attr("transform", `translate(0,${innerH})`)
-      .call(d3.axisBottom(x).ticks(5).tickFormat((d) => (d * 100).toFixed(0) + "pp"));
+      .call(d3.axisBottom(x).ticks(5).tickFormat((d) => (d * 100).toFixed(0) + "%"));
 
     setHeader(mode);
-    renderLegend(note);
+    renderLegend(false);
   }
 
-  function renderLegend(note) {
+  /** The key: what the two dots are, and what the segment's colour means. */
+  function renderLegend(inactive) {
     const legend = d3.select("#view-d-legend");
     legend.selectAll("*").remove();
+    const cls = "legend-item" + (inactive ? " is-inactive" : "");
+
+    // One entry per dot, each beside its own word. The filled dot is drawn in ink, not
+    // in a sign colour: in the chart it takes red or blue from the direction, and a
+    // legend that picked one of the two would look like it meant that direction.
+    for (const [filled, text] of [[false, "comparison"], [true, "selection"]]) {
+      const item = legend.append("span").attr("class", cls);
+      const svg = item.append("svg").attr("width", 12).attr("height", 12);
+      svg.append("circle").attr("cx", 6).attr("cy", 6)
+        .attr("r", filled ? 4 : 3.5)
+        .attr("fill", filled ? "#1f2330" : "#ffffff")
+        .attr("stroke", filled ? "none" : COMPARISON);
+      item.append("span").text(text);
+    }
 
     for (const [colour, text] of [[OVER, "more frequent in selection"],
                                   [UNDER, "less frequent in selection"]]) {
-      const item = legend.append("span").attr("class", "legend-item");
+      const item = legend.append("span").attr("class", cls);
       item.append("span").attr("class", "legend-swatch").style("background", colour);
       item.append("span").text(text);
     }
-    legend.append("span").attr("class", "legend-note").text(note || VALIDITY_NOTE);
   }
 
   /**
@@ -205,29 +406,24 @@ const ViewD = (() => {
    */
   function demo() {
     const fake = [
-      { label: "access: Supply Chain Compromise", difference: 0.18, z: 4.6, nSelection: 41 },
-      { label: "target: Critical Infrastructure", difference: -0.14, z: -3.9, nSelection: 12 },
-      { label: "impact: Data Exfiltration", difference: 0.11, z: 3.1, nSelection: 33 },
-      { label: "init: State-affiliated", difference: 0.09, z: 2.7, nSelection: 28 },
-      { label: "issue: Espionage", difference: -0.08, z: -2.2, nSelection: 9 },
-      { label: "ilaw: Sovereignty breach", difference: 0.06, z: 1.8, nSelection: 21 },
-      { label: "type: Ransomware", difference: 0.22, z: 1.1, nSelection: 4 },
-    ];
-    render(fake, "DEMO — invented numbers, not a result",
-      "layout check only · these values are fabricated");
+      ["access_phishing", 0.31, 0.13, 4.6, 41],
+      ["target_critical_infrastructure", 0.18, 0.32, -3.9, 12],
+      ["impact_data_exfiltration", 0.44, 0.33, 3.1, 33],
+      ["init_state", 0.38, 0.29, 2.7, 28],
+      ["issue_territory", 0.06, 0.14, -2.2, 9],
+      ["ilaw_sovereignty", 0.21, 0.15, 1.8, 21],
+      ["type_ransomware", 0.30, 0.08, 1.1, 4],
+    ].map(([column, pSelection, pComparison, z, nSelection]) => ({
+      column, label: column, pSelection, pComparison, z, nSelection,
+      nComparison: 100, difference: pSelection - pComparison, reliable: true,
+    }));
+    render(fake, "DEMO — invented numbers, not a result");
     d3.select("#view-d-canvas svg").append("text")
       .attr("class", "demo-stamp").attr("x", "50%").attr("y", "52%")
       .attr("text-anchor", "middle").text("DEMO DATA");
     console.warn("[view D] demo layout drawn from fabricated numbers - not a result.");
   }
 
-  /**
-   * Phase 11: the panel learns WHAT would be compared, but still computes nothing.
-   *
-   * The header naming the comparison is not decoration - CLAUDE.md sec.5 forbids
-   * leaving the target implicit, and stating it before the bars exist makes the
-   * distinction visible: the question is defined, the answer is not yet computed.
-   */
   let pending = 0;
 
   /**
@@ -241,8 +437,17 @@ const ViewD = (() => {
     if (snapshot.empty) return showEmpty();
 
     setHeader(snapshot.mode);
-    d3.select("#view-d-canvas").html(
-      `<span class="placeholder">contrasting ${snapshot.selected.length} incidents…</span>`);
+    // While the new contrast is computed, the previous chart stays on screen, faded,
+    // rather than being swapped for a loading line: blanking the panel for the length of
+    // a round trip read as a flicker. The placeholder is only for the first contrast,
+    // when there is no chart to keep.
+    const canvas = d3.select("#view-d-canvas");
+    if (canvas.select("svg").empty()) {
+      canvas.html(
+        `<span class="placeholder">contrasting ${snapshot.selected.length} incidents…</span>`);
+    } else {
+      canvas.select("svg").classed("is-stale", true);
+    }
 
     const token = ++pending;
     try {
@@ -274,15 +479,21 @@ const ViewD = (() => {
 
       if (!result.ok) return showEmpty(result.reason);
 
+      // The two rates the dumbbell draws. They are not sent as such: the response
+      // carries each group's count and size, and a proportion is the one from the
+      // other - computing it here keeps the API contract unchanged.
       render(result.features.map((f) => ({
+        column: f.column,
         label: f.label,
         difference: f.difference,
         z: f.z,
         nSelection: f.n_selection,
+        nComparison: f.n_comparison,
+        pSelection: result.n_a ? f.n_selection / result.n_a : 0,
+        pComparison: result.n_b ? f.n_comparison / result.n_b : 0,
         reliable: f.reliable,
         isNullish: f.is_nullish,
-      })), snapshot.mode,
-        `${VALIDITY_NOTE} · ${result.n_reliable} of ${result.n_features} pass`);
+      })), snapshot.mode);
     } catch (error) {
       if (token !== pending) return;
       showEmpty(`contrast failed: ${error.message}`);
@@ -290,5 +501,5 @@ const ViewD = (() => {
     }
   }
 
-  return { showEmpty, render, demo, applySelection };
+  return { showEmpty, render, demo, applySelection, setFeatureBlocks };
 })();

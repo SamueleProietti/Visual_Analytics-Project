@@ -14,6 +14,7 @@ from pathlib import Path
 import pandas as pd
 
 PROC = Path(__file__).resolve().parent.parent.parent / "data" / "processed"
+RAW = PROC.parent / "raw"
 
 REQUIRED = [
     "features_matrix.csv.gz",
@@ -144,6 +145,22 @@ def timeline():
 
 
 @lru_cache(maxsize=1)
+def initiated_counts():
+    """Incidents each state is named as the initiator of, keyed by ISO alpha-2.
+
+    Read from the attribution table's initiator_alpha_2, not from the global table's
+    free-text initiator_country: the latter is a comma-joined list of names that
+    themselves contain commas ("Iran, Islamic Republic of"), and splitting it would be
+    guesswork. "Unknown" and "Not attributed" are not two-letter codes and drop out.
+    An incident attributed to the same state several times counts once.
+    """
+    frame = pd.read_csv(RAW / "eurepoc_attribution_dataset_1.3.csv",
+                        usecols=["incident_id", "initiator_alpha_2"], **_CODE_SAFE)
+    frame = frame[frame["initiator_alpha_2"].str.len() == 2].drop_duplicates()
+    return frame["initiator_alpha_2"].value_counts().to_dict()
+
+
+@lru_cache(maxsize=1)
 def country_summary():
     """Per-country totals for View A's entry state.
 
@@ -156,6 +173,7 @@ def country_summary():
     joined = long.merge(meta, on="incident_id")
 
     mappable = joined[joined["country_code"].notna()]
+    initiated = initiated_counts()
     rows = []
     for code, group in mappable.groupby("country_code"):
         sectors = group["sector"].value_counts()
@@ -166,6 +184,7 @@ def country_summary():
             "country": group["country"].iloc[0],
             "observations": int(len(group)),
             "incidents": int(unique_incidents),
+            "initiated": int(initiated.get(code, 0)),
             "top_sector": sectors.index[0],
             "top_sector_count": int(sectors.iloc[0]),
             "not_attributed_rate": round(float(attribution), 4),
