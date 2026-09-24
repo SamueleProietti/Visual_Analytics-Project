@@ -255,8 +255,8 @@ const ViewA = (() => {
     const ends = layer.ends || ["", ""];
     const w = BLOCK * layer.colours.length;
     const ramp = row.append("svg").attr("class", "ramp")
-      .attr("width", w + 16).attr("height", 19);
-    const g = ramp.append("g").attr("transform", "translate(8,0)");
+      .attr("width", w + 24).attr("height", 19);
+    const g = ramp.append("g").attr("transform", "translate(12,0)");
     g.selectAll("rect.block").data(layer.colours).join("rect")
       .attr("class", "block")
       .attr("x", (d, i) => i * BLOCK).attr("y", 0)
