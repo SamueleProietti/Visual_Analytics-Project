@@ -14,7 +14,6 @@ from pathlib import Path
 import pandas as pd
 
 PROC = Path(__file__).resolve().parent.parent.parent / "data" / "processed"
-RAW = PROC.parent / "raw"
 
 REQUIRED = [
     "features_matrix.csv.gz",
@@ -24,6 +23,7 @@ REQUIRED = [
     "contingency_country_sector.csv.gz",
     "country_codes.csv",
     "tsne_global.csv.gz",
+    "initiator_counts.csv",
 ]
 
 
@@ -148,16 +148,13 @@ def timeline():
 def initiated_counts():
     """Incidents each state is named as the initiator of, keyed by ISO alpha-2.
 
-    Read from the attribution table's initiator_alpha_2, not from the global table's
-    free-text initiator_country: the latter is a comma-joined list of names that
-    themselves contain commas ("Iran, Islamic Republic of"), and splitting it would be
-    guesswork. "Unknown" and "Not attributed" are not two-letter codes and drop out.
-    An incident attributed to the same state several times counts once.
+    A cached artifact like everything else this module serves. It used to be computed
+    from the raw attribution CSV on the first request, which worked on a machine that
+    had the raw data and failed with a 500 on a clone that did not - the one thing in
+    the whole API still reaching outside data/processed.
     """
-    frame = pd.read_csv(RAW / "eurepoc_attribution_dataset_1.3.csv",
-                        usecols=["incident_id", "initiator_alpha_2"], **_CODE_SAFE)
-    frame = frame[frame["initiator_alpha_2"].str.len() == 2].drop_duplicates()
-    return frame["initiator_alpha_2"].value_counts().to_dict()
+    frame = _read("initiator_counts.csv", **_CODE_SAFE)
+    return dict(zip(frame["code"], frame["initiated"].astype(int)))
 
 
 @lru_cache(maxsize=1)

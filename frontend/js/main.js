@@ -66,12 +66,16 @@ async function checkBackend() {
   try {
     const health = await getJSON(API.health);
 
-    const missing = health.datasets.filter((d) => !d.present);
-    if (health.data_ready) {
-      setAlert("", "ok");
-    } else {
-      const names = missing.map((d) => d.name).join(", ");
-      setAlert(`backend ok, but raw data is missing: ${names}`, "error");
+    // The raw CSVs are needed to REBUILD the cached artifacts, never to serve them, so
+    // their absence is not a fault the analyst has to see: a clone without them runs the
+    // whole tool. It used to raise a red banner, which on a fresh clone was the first
+    // thing on screen and read as a broken install. The missing artifacts, which really
+    // do stop everything, still raise one - see bootstrap().
+    setAlert("", "ok");
+    const missing = health.datasets.filter((d) => !d.present).map((d) => d.name);
+    if (missing.length) {
+      console.info(`[threat-shape] raw CSVs absent (${missing.join(", ")}); serving the `
+        + "cached artifacts. Add them to data/raw only to re-run the pipeline.");
     }
 
     // The corpus size and AS index used to sit in a page footer. They are report and

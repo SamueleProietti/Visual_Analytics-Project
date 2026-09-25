@@ -405,17 +405,40 @@ def verify(matrix, blocks, long, meta, g):
 
 # --------------------------------------------------------------------------------------
 
+def build_initiator_counts(attribution):
+    """How many incidents each state is named as the initiator of, by ISO alpha-2.
+
+    Taken from the attribution table's `initiator_alpha_2` rather than the global
+    table's free-text `initiator_country`: the latter is a comma-joined list of names
+    that themselves contain commas ("Iran, Islamic Republic of"), so splitting it would
+    be guesswork. Values that are not two-letter codes - "Unknown", "Not attributed" -
+    drop out, and an incident attributed to the same state several times counts once.
+    """
+    rule("5. INITIATOR COUNTS")
+    frame = attribution[["incident_id", "initiator_alpha_2"]]
+    frame = frame[frame["initiator_alpha_2"].str.len() == 2].drop_duplicates()
+    counts = (frame["initiator_alpha_2"].value_counts()
+              .rename_axis("code").reset_index(name="initiated"))
+    print(f"  {len(counts)} states named as initiator; "
+          f"top: {', '.join(f'{r.code} {r.initiated}' for r in counts.head(4).itertuples())}")
+    return counts
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
 
     g = pd.read_csv(RAW / "eurepoc_global_dataset_1_3.csv", low_memory=False)
     receiver = pd.read_csv(RAW / "eurepoc_receiver_dataset_1.3.csv", low_memory=False)
+    attribution = pd.read_csv(RAW / "eurepoc_attribution_dataset_1.3.csv",
+                              usecols=["incident_id", "initiator_alpha_2"],
+                              keep_default_na=False, na_values=[""])
 
     matrix, blocks = build_feature_matrix(g)
     long = build_incident_receiver(g, receiver)
     long, country_codes = attach_country_codes(long, g)
     contingency = build_contingency(long)
     meta = build_incidents_meta(g)
+    initiators = build_initiator_counts(attribution)
 
     verify(matrix, blocks, long, meta, g)
 
@@ -427,6 +450,7 @@ def main():
         ("incident_receiver.csv.gz", long, True),
         ("contingency_country_sector.csv.gz", contingency, True),
         ("country_codes.csv", country_codes, False),
+        ("initiator_counts.csv", initiators, False),
     ]
     for filename, frame, compress in artifacts:
         path = OUT / filename
