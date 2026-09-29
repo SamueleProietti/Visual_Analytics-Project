@@ -1,0 +1,124 @@
+column,block,source_column,atom,label,is_nullish
+type_data_theft,type,incident_type,Data theft,type: Data theft,False
+type_data_theft_doxing,type,incident_type,Data theft & Doxing,type: Data theft & Doxing,False
+type_disruption,type,incident_type,Disruption,type: Disruption,False
+type_hijacking_with_misuse,type,incident_type,Hijacking with Misuse,type: Hijacking with Misuse,False
+type_hijacking_without_misuse,type,incident_type,Hijacking without Misuse,type: Hijacking without Misuse,False
+type_not_available,type,incident_type,Not available,type: Not available,True
+type_ransomware,type,incident_type,Ransomware,type: Ransomware,False
+access_drive_by_compromise,access,mitre_initial_access,Drive-By Compromise,access: Drive-By Compromise,False
+access_exploit_public_facing_application,access,mitre_initial_access,Exploit Public-Facing Application,access: Exploit Public-Facing Application,False
+access_external_remote_services,access,mitre_initial_access,External Remote Services,access: External Remote Services,False
+access_hardware_additions,access,mitre_initial_access,Hardware Additions,access: Hardware Additions,False
+access_not_available,access,mitre_initial_access,Not available,access: Not available,True
+access_phishing,access,mitre_initial_access,Phishing,access: Phishing,False
+access_replication_through_removable_media,access,mitre_initial_access,Replication Through Removable Media,access: Replication Through Removable Media,False
+access_supply_chain_compromise,access,mitre_initial_access,Supply Chain Compromise,access: Supply Chain Compromise,False
+access_trusted_relationship,access,mitre_initial_access,Trusted Relationship,access: Trusted Relationship,False
+access_valid_accounts,access,mitre_initial_access,Valid Accounts,access: Valid Accounts,False
+impact_account_access_removal,impact,mitre_impact,Account Access Removal,impact: Account Access Removal,False
+impact_data_destruction,impact,mitre_impact,Data Destruction,impact: Data Destruction,False
+impact_data_encrypted_for_impact,impact,mitre_impact,Data Encrypted for Impact,impact: Data Encrypted for Impact,False
+impact_data_exfiltration,impact,mitre_impact,Data Exfiltration,impact: Data Exfiltration,False
+impact_data_manipulation,impact,mitre_impact,Data Manipulation,impact: Data Manipulation,False
+impact_defacement,impact,mitre_impact,Defacement,impact: Defacement,False
+impact_disk_wipe,impact,mitre_impact,Disk Wipe,impact: Disk Wipe,False
+impact_endpoint_denial_of_service,impact,mitre_impact,Endpoint Denial of Service,impact: Endpoint Denial of Service,False
+impact_firmware_corruption,impact,mitre_impact,Firmware Corruption,impact: Firmware Corruption,False
+impact_network_denial_of_service,impact,mitre_impact,Network Denial of Service,impact: Network Denial of Service,False
+impact_not_available,impact,mitre_impact,Not available,impact: Not available,True
+impact_resource_hijacking,impact,mitre_impact,Resource Hijacking,impact: Resource Hijacking,False
+impact_service_stop,impact,mitre_impact,Service Stop,impact: Service Stop,False
+impact_system_shutdown_reboot,impact,mitre_impact,System Shutdown/Reboot,impact: System Shutdown/Reboot,False
+fimpact_day,fimpact,functional_impact,Day (< 24h),fimpact: Day,False
+fimpact_days,fimpact,functional_impact,Days (< 7 days),fimpact: Days,False
+fimpact_months,fimpact,functional_impact,Months,fimpact: Months,False
+fimpact_no_system_interference_disruption,fimpact,functional_impact,No system interference/disruption,fimpact: No system interference/disruption,False
+fimpact_not_available,fimpact,functional_impact,Not available,fimpact: Not available,True
+fimpact_weeks,fimpact,functional_impact,Weeks (< 4 weeks),fimpact: Weeks,False
+iimpact_data_corruption_but_no_leaking_of_data_n,iimpact,intelligence_impact,"Data corruption (deletion/altering) but no leaking of data, no data breach/exfiltration OR major data breach / exfiltration, but no data corruption and/or leaking of data","iimpact: Data corruption but no leaking of data, no data breach/exfiltration OR major data breach / exfiltration, but no data corruption and/or leaking of data",False
+iimpact_major_data_breach_exfiltration_data_corr,iimpact,intelligence_impact,Major data breach/exfiltration (critical/sensitive information) & data corruption (deletion/altering) and/or leaking of data,iimpact: Major data breach/exfiltration & data corruption and/or leaking of data,False
+iimpact_minor_data_breach_exfiltration_but_no_da,iimpact,intelligence_impact,"Minor data breach/exfiltration (no critical/sensitive information), but no data corruption (deletion/altering) or leaking of data","iimpact: Minor data breach/exfiltration , but no data corruption or leaking of data",False
+iimpact_minor_data_breach_exfiltration_data_corr,iimpact,intelligence_impact,"Minor data breach/exfiltration (no critical/sensitive information), data corruption (deletion/altering) and/or leaking of data","iimpact: Minor data breach/exfiltration , data corruption and/or leaking of data",False
+iimpact_no_data_breach_exfiltration_or_data_corr,iimpact,intelligence_impact,No data breach/exfiltration or data corruption (deletion/altering) and/or leaking of data,iimpact: No data breach/exfiltration or data corruption and/or leaking of data,False
+iimpact_not_available,iimpact,intelligence_impact,Not available,iimpact: Not available,True
+issue_autonomy,issue,cyber_conflict_issue,Autonomy,issue: Autonomy,False
+issue_cyber_specific,issue,cyber_conflict_issue,Cyber-specific,issue: Cyber-specific,False
+issue_decolonization,issue,cyber_conflict_issue,Decolonization,issue: Decolonization,False
+issue_international_power,issue,cyber_conflict_issue,International power,issue: International power,False
+issue_national_power,issue,cyber_conflict_issue,National power,issue: National power,False
+issue_not_available,issue,cyber_conflict_issue,Not available,issue: Not available,True
+issue_other,issue,cyber_conflict_issue,Other,issue: Other,False
+issue_resources,issue,cyber_conflict_issue,Resources,issue: Resources,False
+issue_secession,issue,cyber_conflict_issue,Secession,issue: Secession,False
+issue_subnational_predominance,issue,cyber_conflict_issue,Subnational predominance,issue: Subnational predominance,False
+issue_system_ideology,issue,cyber_conflict_issue,System / ideology,issue: System / ideology,False
+issue_territory,issue,cyber_conflict_issue,Territory,issue: Territory,False
+issue_unknown,issue,cyber_conflict_issue,Unknown,issue: Unknown,True
+oissue_autonomy,oissue,offline_conflict_issue,Autonomy,oissue: Autonomy,False
+oissue_international_power,oissue,offline_conflict_issue,International power,oissue: International power,False
+oissue_national_power,oissue,offline_conflict_issue,National power,oissue: National power,False
+oissue_not_available,oissue,offline_conflict_issue,Not available,oissue: Not available,True
+oissue_other,oissue,offline_conflict_issue,Other,oissue: Other,False
+oissue_resources,oissue,offline_conflict_issue,Resources,oissue: Resources,False
+oissue_secession,oissue,offline_conflict_issue,Secession,oissue: Secession,False
+oissue_subnational_predominance,oissue,offline_conflict_issue,Subnational predominance,oissue: Subnational predominance,False
+oissue_system_ideology,oissue,offline_conflict_issue,System/ideology,oissue: System/ideology,False
+oissue_territory,oissue,offline_conflict_issue,Territory,oissue: Territory,False
+oissue_third_party_intervention_third_party_aff,oissue,offline_conflict_issue,Third-party intervention / third-party affection,oissue: Third-party intervention / third-party affection,False
+oissue_unknown,oissue,offline_conflict_issue,Unknown,oissue: Unknown,True
+ilaw_aid_and_development,ilaw,il_breach_indicator,Aid and development,ilaw: Aid and development,False
+ilaw_air_law,ilaw,il_breach_indicator,Air law,ilaw: Air law,False
+ilaw_armed_conflict,ilaw,il_breach_indicator,Armed conflict,ilaw: Armed conflict,False
+ilaw_cyber_espionage,ilaw,il_breach_indicator,Cyber espionage,ilaw: Cyber espionage,False
+ilaw_diplomatic_consular_law,ilaw,il_breach_indicator,Diplomatic / consular law,ilaw: Diplomatic / consular law,False
+ilaw_disaster_management,ilaw,il_breach_indicator,Disaster management,ilaw: Disaster management,False
+ilaw_due_diligence,ilaw,il_breach_indicator,Due diligence,ilaw: Due diligence,False
+ilaw_human_rights,ilaw,il_breach_indicator,Human rights,ilaw: Human rights,False
+ilaw_intellectual_property_law,ilaw,il_breach_indicator,Intellectual property law,ilaw: Intellectual property law,False
+ilaw_international_criminal_law,ilaw,il_breach_indicator,International criminal law,ilaw: International criminal law,False
+ilaw_international_economic_law,ilaw,il_breach_indicator,International economic law,ilaw: International economic law,False
+ilaw_international_organizations,ilaw,il_breach_indicator,International organizations,ilaw: International organizations,False
+ilaw_international_peace,ilaw,il_breach_indicator,International peace,ilaw: International peace,False
+ilaw_international_telecommunication_law,ilaw,il_breach_indicator,International telecommunication law,ilaw: International telecommunication law,False
+ilaw_law_of_the_sea,ilaw,il_breach_indicator,Law of the sea,ilaw: Law of the sea,False
+ilaw_law_of_treaties,ilaw,il_breach_indicator,Law of treaties (pacta sunt servanda),ilaw: Law of treaties,False
+ilaw_not_available,ilaw,il_breach_indicator,Not available,ilaw: Not available,True
+ilaw_self_determination,ilaw,il_breach_indicator,Self-determination,ilaw: Self-determination,False
+ilaw_sovereignty,ilaw,il_breach_indicator,Sovereignty,ilaw: Sovereignty,False
+ilaw_space_law,ilaw,il_breach_indicator,Space law,ilaw: Space law,False
+init_individual_hacker,init,initiator_category,Individual hacker(s),init: Individual hacker,False
+init_non_state_group,init,initiator_category,Non-state-group,init: Non-state-group,False
+init_not_attributed,init,initiator_category,Not attributed,init: Not attributed,True
+init_other,init,initiator_category,Other,init: Other,False
+init_state,init,initiator_category,State,init: State,False
+init_state_affiliated_actor,init,initiator_category,State affiliated actor,init: State affiliated actor,False
+init_unknown,init,initiator_category,Unknown,init: Unknown,True
+stateresp_direct,stateresp,state_responsibility_actor,Direct (official members of state entities / agencies / units responsible),stateresp: Direct,False
+stateresp_indirect,stateresp,state_responsibility_actor,Indirect (knowingly sanctioning / ordering / ideological / material support by official members of state entities/agencies/units for officially non-state-actors),stateresp: Indirect,False
+stateresp_none_negligent,stateresp,state_responsibility_actor,None/Negligent,stateresp: None/Negligent,False
+stateresp_not_available,stateresp,state_responsibility_actor,Not available,stateresp: Not available,True
+target_corporate_targets,target,receiver_category,Corporate Targets (corporate targets only coded if the respective company is not part of the critical infrastructure definition),target: Corporate Targets,False
+target_critical_infrastructure,target,receiver_category,Critical infrastructure,target: Critical infrastructure,False
+target_education,target,receiver_category,Education,target: Education,False
+target_end_user_specially_protected_groups,target,receiver_category,End user(s) / specially protected groups,target: End user / specially protected groups,False
+target_international_supranational_organization,target,receiver_category,International / supranational organization,target: International / supranational organization,False
+target_media,target,receiver_category,Media,target: Media,False
+target_not_available,target,receiver_category,Not available,target: Not available,True
+target_other,target,receiver_category,Other,target: Other,False
+target_science,target,receiver_category,Science,target: Science,False
+target_social_groups,target,receiver_category,Social groups,target: Social groups,False
+target_state_institutions_political_system,target,receiver_category,State institutions / political system,target: State institutions / political system,False
+target_unknown,target,receiver_category,Unknown,target: Unknown,True
+dtheft_for_private_commercial_targets_non_sensi,dtheft,data_theft,For private / commercial targets: non-sensitive information (incident scores 1 point in intensity),dtheft: For private / commercial targets: non-sensitive information,False
+dtheft_for_private_commercial_targets_sensitive,dtheft,data_theft,For private / commercial targets: sensitive information (incident scores 2 points in intensity),dtheft: For private / commercial targets: sensitive information,False
+dtheft_not_available,dtheft,data_theft,Not available,dtheft: Not available,True
+dtheft_none,dtheft,data_theft,none,dtheft: none,True
+disrupt_long_term_disruption,disrupt,disruption,Long-term disruption (> 24h; incident scores 2 points in intensity),disrupt: Long-term disruption,False
+disrupt_not_available,disrupt,disruption,Not available,disrupt: Not available,True
+disrupt_short_term_disruption,disrupt,disruption,Short-term disruption (< 24h; incident scores 1 point in intensity),disrupt: Short-term disruption,False
+disrupt_none,disrupt,disruption,none,disrupt: none,True
+hijack_hijacking_not_used_empowerment,hijack,hijacking,"Hijacking, not used - empowerment (incident scores 1 point in intensity)","hijack: Hijacking, not used - empowerment",False
+hijack_hijacking_system_misuse_e_g_through_data,hijack,hijacking,"Hijacking, system misuse, e.g., through data theft and / or disruption (incident scores 2 points in intensity)","hijack: Hijacking, system misuse, e.g., through data theft and / or disruption",False
+hijack_not_available,hijack,hijacking,Not available,hijack: Not available,True
+hijack_none,hijack,hijacking,none,hijack: none,True

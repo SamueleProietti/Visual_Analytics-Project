@@ -1,0 +1,684 @@
+/* Threat-Shape — layout and chrome.
+
+   Design rule for this sheet: every view is a TITLE and a CHART, and nothing else.
+   Legends, the zoom control and the details popup float inside the chart, over space
+   the data leaves empty (ocean, the corners of the t-SNE cloud, the quiet early years
+   of the timeline). The instructions that used to sit under each title are in the
+   title's tooltip. Every pixel of a card below its title is therefore data. */
+
+:root {
+  /* Neutral UI palette. Data-encoding colours are deliberately NOT defined here - each
+     view declares its own scale next to the code that uses it, so the choice of scale
+     stays next to its justification (divergent only where a sign is
+     meaningful). The header indigo is chrome only and appears in no data encoding. */
+  --ink: #1f2330;
+  --ink-soft: #5f6577;
+  --rule: #dadde6;
+  --surface: #ffffff;
+  --page: #e9ebf2;
+  --brand: #3f3b78;
+  --brand-ink: #ffffff;
+
+  --ok: #2e7d32;
+  --pending: #b26a00;
+  --error: #c62828;
+
+  --gap: 4px;                   /* grey between the cards and under the header */
+  --head-h: 24px;               /* view title row */
+  --radius: 6px;
+
+  /* Below this the dashboard stops shrinking and the PAGE scrolls instead: past this
+     point the charts would be too small to read. The views themselves never scroll. */
+  --grid-min-h: 520px;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font: 13px/1.4 "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+/* One column the height of the window: header, then the grid takes the rest. */
+.app-shell {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- header ---------- */
+
+.app-header {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding: 5px 16px 6px;
+  background: var(--brand);
+  color: var(--brand-ink);
+  box-shadow: 0 1px 4px rgba(20, 20, 50, 0.25);
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.app-tagline {
+  font-size: 12px;
+  opacity: 0.78;
+}
+
+/* Failure banner, not a status chip: hidden while the stack is healthy, shown only when
+   the views would otherwise just be silently empty. */
+.app-alert {
+  flex: none;
+  margin: var(--gap) var(--gap) 0;
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 3px;
+  border: 1px solid currentColor;
+  color: var(--error);
+  background: #fff5f5;
+}
+
+.app-alert--pending { color: var(--pending); background: #fffaf0; }
+
+/* ---------- view grid ---------- */
+
+/* A B on top, D C E underneath. Ten equal tracks rather than two, because the second
+   row is split three ways and the first is not: the contrast panel keeps a full half,
+   as in the approved mockup, and the timeline and the histogram share the other half
+   three to two. The panel is the view the tool is built around and its dumbbell spends
+   every pixel it is given on the length that IS the effect size, so it keeps the width
+   it had. */
+.view-grid {
+  flex: 1 1 auto;
+  min-height: var(--grid-min-h);
+  padding: var(--gap);
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    "a a a a a b b b b b"
+    "d d d d d c c c e e";
+  gap: var(--gap);
+}
+
+.view--a { grid-area: a; }
+.view--b { grid-area: b; }
+.view--e { grid-area: e; }
+.view--d { grid-area: d; }
+.view--c { grid-area: c; }
+
+/* Narrower than a tablet: one column, and the page scrolls. */
+@media (max-width: 759px) {
+  .app-shell { height: auto; }
+  .view-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 340px 360px 360px 280px 260px;
+    grid-template-areas: "a" "b" "d" "c" "e";
+  }
+}
+
+/* A card: fixed-height title, and a canvas that takes exactly what is left.
+   min-height:0 is what lets a flex child shrink below its content. */
+.view {
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: 0 1px 3px rgba(30, 30, 60, 0.12), 0 0 0 1px rgba(30, 30, 60, 0.04);
+  padding: 2px 8px 6px;
+  overflow: hidden;
+}
+
+/* Title centred, as in the reference dashboards. The side columns hold the view's one
+   control (the map toggle) or its comparison statement (the contrast header), so the
+   title stays centred whatever sits beside it. */
+.view-head {
+  flex: none;
+  height: var(--head-h);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 10px;
+}
+
+.view h2 {
+  grid-column: 2;
+  margin: 0;
+  font-size: 14px;
+  line-height: var(--head-h);
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  cursor: help;               /* the title's tooltip carries the interaction hints */
+}
+
+.view-head-extra {
+  grid-column: 3;
+  justify-self: end;
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.view-canvas {
+  position: relative;          /* context for the floating legends and controls */
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* The map is scaled to COVER this box, so what falls outside is meant to be cut
+     (a view that scrolls is still forbidden). */
+  overflow: hidden;
+}
+
+/* An inline <svg> sits on the text baseline and reserves a few pixels below it, enough
+   to make a fixed-height canvas scroll. display:block removes the baseline gap. */
+.view-canvas svg { display: block; }
+
+.placeholder {
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* ---------- legends ---------- */
+
+/* Every view carries its own legend. */
+.view-legend {
+  font-size: 10px;
+  line-height: 13px;
+  color: var(--ink-soft);
+}
+
+/* A legend floating over the chart. Nearly opaque, so marks underneath cannot be read
+   as part of the key; pointer-events off so it never swallows a click or a lasso. */
+.legend-float {
+  position: absolute;
+  z-index: 2;
+  padding: 5px 8px 5px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(30, 30, 60, 0.1);
+  pointer-events: none;
+}
+
+.legend-float--bl { left: 8px; bottom: 8px; }
+.legend-float--br { right: 8px; bottom: 8px; }
+.legend-float--tl { left: 8px; top: 6px; }
+
+/* View D keeps a one-line strip under its chart: its bars fill the whole canvas, so
+   there is no empty region to float a key over. */
+.legend-strip {
+  flex: none;
+  height: 14px;
+  margin-top: 2px;
+  display: flex;
+  justify-content: center;
+  column-gap: 14px;
+  align-items: center;
+  overflow: hidden;
+}
+
+.legend-title {
+  display: block;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 10px;
+  margin-bottom: 3px;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+.legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 10px;
+  row-gap: 3px;
+  align-items: center;
+}
+
+.legend-group + .legend-group { margin-top: 6px; }
+
+/* A stepped colour ramp: the classes are contiguous blocks, labelled at their
+   boundaries - it reads like a gradient but stays honest about the class breaks. */
+.ramp { display: block; }
+.ramp text { font-size: 9px; fill: var(--ink-soft); }
+.ramp .ramp-extra { fill: var(--ink-soft); }
+
+.legend-inactive { opacity: 0.5; }
+.legend-item.is-inactive { opacity: 0.5; }
+
+/* Two-column key for the timeline's six types. */
+.legend-cols {
+  display: grid;
+  grid-template-columns: auto auto;
+  column-gap: 12px;
+  row-gap: 2px;
+}
+
+/* ---------- View A: map, toggle, details ---------- */
+
+.toggle { display: inline-flex; }
+
+.toggle-button {
+  font: inherit;
+  font-size: 10.5px;
+  line-height: 15px;
+  padding: 1px 9px;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.toggle-button:first-child { border-radius: 10px 0 0 10px; }
+.toggle-button:last-child  { border-radius: 0 10px 10px 0; border-left: none; }
+
+.toggle-button.is-active {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+
+#view-a-canvas { display: block; }          /* svg fills it; no flex centring */
+
+#view-a-canvas > svg { border-radius: 4px; }
+
+.sphere {
+  fill: #eef3f8;                            /* ocean: neutral, never a data colour */
+  stroke: none;
+}
+
+path.country {
+  cursor: pointer;
+  transition: fill 120ms linear;
+  /* Borders keep their screen width as the map scales. */
+  vector-effect: non-scaling-stroke;
+}
+
+path.country:hover { fill-opacity: 0.75; }
+
+.map-zoom {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  z-index: 3;
+}
+
+.map-zoom button {
+  width: 24px;
+  height: 24px;
+  font: 600 15px/1 "Segoe UI", system-ui, sans-serif;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0;
+  box-shadow: 0 1px 2px rgba(30, 30, 60, 0.1);
+}
+
+.map-zoom button:hover:not(:disabled) { background: #fff; border-color: var(--ink-soft); }
+
+/* Disabled at the limits rather than hidden: greyed out reads as "you are at the end". */
+.map-zoom button:disabled { opacity: 0.4; cursor: default; }
+
+/* Details on demand: a FIXED box in the bottom-left corner, over the South Pacific.
+   Fixed width and height, so it covers the same stretch of open ocean whatever is
+   selected; sized for one country card, and scrolling when several are stacked in it
+   (see setPopup in viewA_map.js). Absolutely positioned, so revealing it cannot change
+   the view's height (fixed-size views). */
+.map-popup {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  z-index: 4;
+  width: 158px;
+  height: 86px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #b9bdca transparent;
+  padding: 4px 8px 5px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--rule);
+  box-shadow: 0 2px 8px rgba(30, 30, 60, 0.16);
+  font-size: 10px;
+  line-height: 13px;
+}
+
+.map-popup::-webkit-scrollbar { width: 5px; }
+.map-popup::-webkit-scrollbar-thumb { background: #b9bdca; border-radius: 3px; }
+
+/* The user-agent's [hidden]{display:none} loses to a class selector with display set. */
+.map-popup[hidden] { display: none; }
+
+.map-popup .popup-name {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 2px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.map-popup dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 8px;
+}
+
+.map-popup dt { color: var(--ink-soft); white-space: nowrap; }
+.map-popup dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.map-popup .popup-row + .popup-row {
+  margin-top: 5px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--rule);
+}
+
+/* ---------- View B: t-SNE scatter ---------- */
+
+circle.point { cursor: crosshair; }
+
+circle.point:hover {
+  stroke: #1a1a1a;
+  stroke-width: 1.2;
+}
+
+/* ---------- View C: stacked area timeline ---------- */
+
+path.band { fill-opacity: 0.9; }
+
+/* Axes are drawn here, unlike View B, because years and counts are real quantities. */
+.axis text { font-size: 9.5px; fill: var(--ink-soft); }
+.axis path, .axis line { stroke: #c9ccd6; }
+.grid line { stroke: #eceef3; }
+.grid path { display: none; }
+
+/* ---------- View D: contrast panel ---------- */
+
+.panel-header {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--brand);
+}
+
+.panel-header.is-muted {
+  color: var(--ink-soft);
+  font-weight: 400;
+  font-style: italic;
+}
+
+/* Dumbbell rows: a segment between the comparison's rate and the selection's, and a
+   dot at each end. Colours and per-row opacity are set in viewD_contrast.js, because a
+   CSS declaration would outrank those presentation attributes. */
+.dumbbell { stroke-width: 3; stroke-linecap: round; }
+.dumbbell.is-unreliable-link { stroke-dasharray: 3 2; }
+.dot-comparison { stroke-width: 1.4; }
+.row-hit { fill: transparent; }        /* hover target: the dumbbell and its dots */
+
+/* Table rules between rows: faint enough to separate without competing with the data. */
+.row-rule { stroke: #e7e9f0; stroke-width: 1; }
+
+/* The dimension a group of rows answers: who attacks, what kind of attack, and so on.
+   Lighter and smaller than the row labels - it is a signpost, not a finding. */
+.dim-header {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  fill: var(--ink-soft);
+}
+
+.bar-label { font-size: 10px; fill: var(--ink); }
+.z-value   { font-size: 9px;  fill: var(--ink-soft); }
+.z-value .pp-value { fill: var(--ink); font-weight: 600; }
+
+/* Fabricated demo data must be unmistakable. */
+.demo-stamp {
+  font-size: 30px;
+  font-weight: 700;
+  fill: #c62828;
+  fill-opacity: 0.16;
+  letter-spacing: 0.1em;
+  pointer-events: none;
+}
+
+/* ---------- coordination ---------- */
+
+/* The lasso outline. Dashed so it reads as a transient gesture. */
+path.lasso {
+  fill: rgba(106, 81, 163, 0.08);
+  stroke: #6a51a3;
+  stroke-width: 1.2;
+  stroke-dasharray: 4 3;
+  pointer-events: none;
+}
+
+circle.point.is-dimmed { pointer-events: none; }
+
+/* View C keeps the full series behind the selection as pale context. */
+path.band.is-context { fill-opacity: 0.16; }
+path.band-selected { fill-opacity: 0.95; pointer-events: none; }
+
+.brush .selection { fill: #1a1a1a; fill-opacity: 0.07; stroke: #6b6b6b; }
+
+/* ---------- residual layer ---------- */
+
+/* Unreliable cells are marked, never hidden. Dash pattern ONLY: colour and
+   width are set in draw(), because a CSS declaration outranks a presentation attribute
+   and would erase the black border of a selected country. */
+path.country.is-unreliable { stroke-dasharray: 2 2; }
+
+.legend-swatch.is-unreliable-swatch {
+  background: repeating-linear-gradient(45deg, #ffffff 0 3px, #9a9a9a 3px 4px);
+}
+
+/* ---------- local re-projection ---------- */
+
+/* The banner must be impossible to miss: a local layout and the global one look alike,
+   but their axes mean different things. */
+.banner-bg.is-local { fill: #6a51a3; fill-opacity: 0.92; }
+.banner-bg.is-busy  { fill: #b26a00; fill-opacity: 0.92; }
+.banner-bg.is-warn  { fill: #b26a00; fill-opacity: 0.92; }
+.banner-bg.is-error { fill: #c62828; fill-opacity: 0.92; }
+
+.banner-text {
+  fill: #ffffff;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+
+
+
+/* View A: the off-scale swatches sit level with the ramp's bar, not its labels. */
+.legend-row--ramp { align-items: flex-start; column-gap: 8px; flex-wrap: nowrap; }
+.legend-row--ramp .legend-item { line-height: 10px; }
+.legend-title--inline { display: inline; margin: 0 2px 0 0; line-height: 10px; }
+
+/* View D keeps the previous contrast on screen, faded, while the next one computes. */
+#view-d-canvas svg.is-stale { opacity: 0.45; transition: opacity 120ms linear; }
+
+/* View A's legend: bottom right, the same 6px from the right edge as from the bottom,
+   so it reads as anchored to the corner. It may clip the tip of New Zealand's South
+   Island at laptop size - accepted for a legend that sits where the eye expects it. */
+.legend-float--map { right: 6px; bottom: 6px; }
+
+/* View B's key holds a ramp with labels and circles up to 16px across, so its line
+   is taller than View C's swatch row. Each half is a title beside its scale. */
+.legend-strip--tall { height: 20px; }
+.legend-strip--tall > .legend-item { gap: 6px; align-items: center; }
+
+/* View C's key spread along the full length of the time axis. */
+.legend-strip--spread { justify-content: space-between; column-gap: 8px; padding: 0 4px; }
+
+/* Six entries in two columns and three rows, each carrying a name, a bar and a count.
+   Two columns rather than three because the entry is no longer just a word: at three
+   the longest name and its number did not fit the cell, and the name wrapped inside it.
+   The shape is fixed at every window size, so the key can never resize the chart under
+   the reader - and the compound selector is what keeps the wrap rule further down from
+   overriding this height. */
+.legend-strip.legend-strip--grid3 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: 15px;
+  row-gap: 0;
+  height: 45px;
+  column-gap: 10px;
+  align-items: center;
+  justify-items: stretch;
+  padding: 0 4px;
+}
+
+.legend-strip.legend-strip--grid3 > .legend-item {
+  display: flex;
+  width: 100%;
+  gap: 5px;
+}
+
+/* The name gives way first: in a narrow card it is the only part that can be shortened
+   without losing information, because the bar and the number cannot. */
+.legend-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.legend-bar {
+  flex: 0 0 36px;
+  display: flex;
+  align-items: center;
+}
+
+.legend-bar > .legend-swatch {
+  height: 7px;
+  border-radius: 1px;
+}
+
+.legend-count {
+  flex: 0 0 auto;
+  min-width: 26px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+
+/* View E's score axis: the rule and the marks under the bars, and the two lines that
+   name what is measured and how much of the selection is on it. */
+.score-mark {
+  stroke: var(--ink-soft);
+  stroke-width: 1;
+}
+
+.score-tick {
+  font-size: 9px;
+  fill: var(--ink-soft);
+  text-anchor: middle;
+}
+
+.score-note {
+  font-size: 9px;
+  fill: var(--ink-soft);
+}
+
+/* ---------- hover tooltips (tooltip.js) ---------- */
+
+/* The card is the tooltip's positioning context and its boundary. */
+.view { position: relative; }
+
+.tooltip {
+  position: absolute;
+  z-index: 10;
+  max-width: 280px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  background: rgba(28, 30, 42, 0.94);
+  color: #f2f3f7;
+  font-size: 10.5px;
+  line-height: 1.35;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  pointer-events: none;           /* never steals the hover or the click it describes */
+}
+
+.tooltip[hidden] { display: none; }
+.tooltip strong { display: block; font-weight: 600; margin-bottom: 2px; color: #fff; }
+.tooltip span { display: block; color: #c9ccd8; }
+
+/* The sector gets a full-width line of its own: squeezed beside the counts' labels it
+   was cut to "Critic…". */
+.map-popup dt.is-wide, .map-popup dd.is-wide { grid-column: 1 / -1; text-align: left; }
+
+/* ---------- View C: legend highlight and rescaled axis ---------- */
+
+/* The legend entries are a display control: they dim the other bands and write nothing
+   to the selection store, so no analytic can start from them. */
+.legend-item.is-clickable { cursor: pointer; }
+.legend-item.is-faded { opacity: 0.35; }
+.legend-item.is-locked { font-weight: 700; color: var(--ink); }
+
+/* Dimmed, never hidden: a band only means something in its place in the stack. */
+path.band.is-faded, path.band-selected.is-faded { fill-opacity: 0.12; }
+
+/* Names the axis when it is no longer the corpus-wide one, and keeps the global peak
+   on screen as a number. It sits in the title row, where no band can cover it. */
+/* Below this width View C's six type names no longer fit on one line, and the strip
+   clipped the last of them - found by testing the redraw at a smaller window. The strip
+   keeps a fixed height, it is simply a two-line one here: a legend may never resize a
+   chart after it is drawn, but it may be told in advance that it needs two rows. */
+/* Raised from 1120px when the second row went from two cards to three: the timeline's
+   card now holds 30% of the width instead of 50%, so it reaches the width at which its
+   key stops fitting at a wider window than before. */
+@media (max-width: 1500px) {
+  .legend-strip { height: 28px; flex-wrap: wrap; row-gap: 1px; }
+  .legend-strip--spread { justify-content: center; column-gap: 12px; }
+}

@@ -1,0 +1,371 @@
+\documentclass[conference]{IEEEtran}
+
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage[hidelinks]{hyperref}
+\usepackage{url}
+
+\graphicspath{{../img/}{img/}}
+
+\begin{document}
+
+\title{Threat-Shape: Visual Analytics for the Shape\\of a National Cyber-Threat Profile}
+
+\author{
+\IEEEauthorblockN{Samuele Proietti}
+\IEEEauthorblockA{Sapienza University of Rome\\
+proietti.1946329@studenti.uniroma1.it}
+\and
+\IEEEauthorblockN{amarcvs}
+\IEEEauthorblockA{Sapienza University of Rome\\
+66919210+amarcvs@users.noreply.github.com}
+}
+
+\maketitle
+
+\begin{abstract}
+Analyses typically conducted on public cyber incident databases focus on the number of incidents a country has experienced, the dates, and the type of incident. Threat-Shape is an advanced visual analysis tool that focuses on the \emph{composition} of a country’s cybersecurity threats, analyzing which sectors, techniques, and actors are involved and how this differs from that of another country or from global expectations. The system uses five coordinated views of the 3,414 incidents in the European Cyber Incident Repository (EuRepoC), combined with three calculations that are performed in response to a visual action: a standardized deviation per country, a t-SNE reprojection readapted to the selected subset, and a two-proportion contrastive test that ranks the indicators distinguishing a selection from its comparison group. When applied to the corpus, the tool divides incidents targeting Russia into two operational families that differ by a factor of two in terms of intensity while sharing the same attackers; it shows that attribution rates follow the composition of the adversaries rather than the victim’s forensic capability; and it highlights a gap in the coding coverage of source data that would otherwise be interpreted as a change in the threat itself.
+\end{abstract}
+
+\section{Introduction}
+
+A threat intelligence analyst conducting an assessment of both the national and global landscape does not need to know how many incidents a specific country has suffered, they already have access to this data within their existing databases. 
+\newline
+The true focus of their evaluation is the nature of the threat itself: which sectors are hit harder than the global average would predict, which operations and initial access vectors recur, whether the adversary is a state-sponsored actor, a cybercrime group, or a hacktivist/volunteer, and how this profile differs from that of a peer nation. An analyst pursuing these insights cannot find this information in public repositories or standard dashboards. Visual analytics helps bridge this gap, delivering an optimal, actionable solution for this use case. 
+\newline
+Threat-Shape is our answer to this challenge, engineered to resolve the issues outlined above. Its key advantages include:
+
+\begin{itemize}
+\item a five-view coordinated interface over the EuRepoC corpus in which the projection
+of incident \emph{profiles} is the organising view;
+\item three analytics that are computed on the live selection and are reachable only
+through a visual gesture, no result exists before an
+interaction;
+\item a contrast panel that reports both rates being compared, grouped into the six
+questions an analyst asks of a profile, with an explicit reliability test;
+\item five findings obtained with the tool, including one about the source data itself,
+and a verification suite that re-checks the interaction contract on demand.
+\end{itemize}
+
+\section{Related Work and Positioning}
+
+\subsection{The reference solution: the EuRepoC dashboard}
+
+Our data and our nearest competitor come from the same project. EuRepoC codes publicly
+available, politically relevant cyber incidents using about sixty criteria evaluated by
+experts in IT forensics, political science and international law~\cite{eurepoc-data}. It also publishes an official interactive dashboard over the same dataset~\cite{eurepoc-dash}.
+
+This dashboard is designed for aggregating and filtering: incident counts by country, year,
+type and sector, with a table view for individual incidents. Each question it answers
+tends to focus on \emph{how many, where, when}. However, the composition of a profile is not among them, and neither is any form of dimensionality reduction, for instance what makes
+Italy's incidents different from Germany's once their different sizes are accounted for. Threat-Shape
+deliberately does not reproduce its counting views; the timeline is the only overlap, and
+it is present as the temporal filter that restricts the three analytics rather than as an
+answer in itself.
+
+\subsection{Studies on the same corpus}
+
+The corpus is also used within quantitative political science. Akoto et al.~\cite{akoto}
+build a country--year panel over 195 countries (2000--2022) using cyber-security outcomes that are taken from EuRepoC, in order to test whether data-localization policies enhance those
+outcomes. This approach notably differs from Threat-Shape’s, as records are aggregated and reduced to a few country-level indicators for a regression analysis, which does not adequately fit the problems an analyst must handle. The issue is that while such an approach answers a single, pre-registered question well, it fails to reflect the actual needs of our subject. Threat-Shape keeps the incident as the unit of analysis and lets the question be
+posed by selection.
+
+\subsection{Visual analytics for cyber security}
+
+Surveys of the field show its centre of gravity is network traffic, in fact Shiravi et
+al.~\cite{shiravi} organise nearly all systems of the last two decades into five use-case
+classes built on packets, flows and hosts. Threat-Shape, on the other hand, focuses on curated
+incident records with political and legal coding, where an ``event'' is a documented
+campaign rather than a packet capture.
+
+Böhm et al.~\cite{bohm} are closer to us in data type, they present a graph-based visual analytics
+concept for semi-structured cyber threat intelligence, where analysts explore and enrich
+threat information as a node-link structure. The shared premise is that threat
+intelligence is worth exploring visually, the difference is the
+question. A graph answers \emph{what is connected to what}; our projection answers
+\emph{what resembles what}, which is the question a profile poses.
+
+\subsection{Interactive dimensionality reduction}
+
+Sacha et al.~\cite{sacha} survey how analysts interact with dimensionality reduction and
+find seven recurring interaction scenarios. Among the identified scenarios, we implemented recomputing a projection on a subset in the view, this is particularly challenging, as the result must remain interpretable even when the subset becomes small. We use t-SNE~\cite{tsne},
+report its trustworthiness~\cite{venna} with every local re-projection, and follow the
+warnings collected by Wattenberg et al.~\cite{misread} about how its pictures are
+misread; they drove concrete decisions in Section~\ref{sec:design}.
+
+\subsection{Coordination and comparison}
+
+The coordination model follows the classic multiple-view literature~\cite{roberts}, featuring one shared selection, with no view communicating directly with another. Three views publish a selection and all five answer it, which is the asymmetry a read-only view introduces. For the contrast panel we follow Gleicher et al.'s taxonomy of visual
+comparison~\cite{gleicher} by implementing an explicit encoding of the difference (the segment length) layered over the side-by-side display of the two rates (the two dots). This approach is what lets the panel state both the effect size and the levels it is computed from.
+
+\subsection{What is different here}
+
+Counting tools answer volume, graph tools answer connection, projection tools rarely make the projection the entry point to per-feature statistics, Threat-Shape puts the three together. A selection made on a map, a projection or a timeline parameterises three
+statistics that are reported back into the same views, and the projection itself is
+refitted on that selection so that structure the global embedding had to compress can
+re-emerge.
+
+\section{Data}
+
+\subsection{Source and unit of analysis}
+
+EuRepoC ships four relational tables joined on \texttt{incident\_id}. The release we use
+contains 3{,}414 incidents (2000--2024) in the global table, with 4{,}296
+initiator--receiver pairs, 5{,}217 attribution claims and 12{,}180 targeted
+entities~\cite{eurepoc-data}. The incident is our unit of analysis.
+
+\subsection{Column selection and the AS index}
+
+Of the 85 columns of the global table, most are identifiers, source URLs, free text or
+update metadata. A verification pass over the real files retained \textbf{18 analytical
+columns}: 14 categorical blocks (incident type, initial access, impact technique,
+functional and intelligence impact, cyber and offline conflict issue, international-law
+indicator, initiator category, state responsibility, receiver category, data theft,
+disruption, hijacking) and 4 ordinal severity variables. Two of these four are used directly in the interface: the weighted intensity, encoded as colour in the projection, and the impact indicator score, whose distribution is the fifth view. The AS index is therefore
+
+\[
+3{,}414 \text{ tuples} \times 18 \text{ dimensions} = 61{,}452 .
+\]
+
+The count is of \emph{conceptual} variables, the same
+18 columns expand into 123 binary indicators once their multi-valued cells are exploded,
+which with the 4 ordinals gives the 127-column matrix the projection is computed on.
+Quoting the exploded width as the AS index would inflate it to over 430{,}000 and would
+describe the encoding rather than the data.
+
+\subsection{Encoding and missing values}
+
+Multi-valued cells (EuRepoC separates repeated values with semicolons, including inside
+parenthesised explanations, which a naive split corrupts) are exploded into one binary
+indicator per category. ``Not available'' is kept as its own indicator rather than
+dropped: whether a field was coded is itself a signal, and Section~\ref{sec:insights}
+shows a finding that exists only because those indicators were preserved. Columns are
+standardized before PCA, because the binary matrix has strongly non-uniform column
+variance.
+
+\subsection{Projection pipeline}
+
+The 127-column matrix is reduced by PCA to 20 components (50.7\% of the variance
+retained), then by t-SNE to two dimensions. PCA is static, offline denoising and is never
+recomputed; t-SNE is the technique integrated in the interactive analysis flow. The global
+embedding uses perplexity 30, chosen by the highest trustworthiness among the candidates
+15, 30 and 50 (0.9877, \textbf{0.9897}, 0.9885 at $k=20$); KL divergence was deliberately
+not the selection criterion, since it falls with perplexity by construction. The seed is
+fixed, so the view is identical across restarts.
+
+\section{Design}\label{sec:design}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{insight-1a-russia-two-clusters.png}
+\caption{The five coordinated views after one click on Russia. The map reports 220
+incidents suffered and 380 initiated; the projection highlights the Russian incidents
+and shows them concentrating in two dense regions; the contrast panel states the
+comparison in force; the timeline rescales its count axis to the selection and reports how many incidents of
+each type it is drawing; the impact card tallies the coded impact scores of the same
+selection.}
+\label{fig:overview}
+\end{figure*}
+
+Fig.~\ref{fig:overview} shows the interface. Five views share one selection state. The map, the projection and the timeline are the sources of a selection; all five are targets of it.
+
+\textbf{View A: world choropleth.} This is the entry view. Clicking a country, or
+ctrl-clicking to select multiple, drives the shared selection, a details panel reveals the incidents
+suffered, the incidents initiated and the most targeted sector. A two-state switch substitutes the layer with the share of incidents having no named initiator state. The projection is Miller cylindrical, chosen after evaluating the equal-area and Mercator projections, which presented graphical representation issues given the space dimensions of the view within the dashboard.
+
+\textbf{View B: t-SNE projection.} One mark per incident, colour on a sequential
+single-hue ramp for weighted intensity, and size on $\log(1+x)$ of the affected entities
+with the value on the \emph{area} rather than the radius. Following~\cite{misread}, no axis is drawn or labelled. A free lasso is the gesture that triggers the local re-projection.
+
+\textbf{View C: stacked area timeline.} Different incident types are represented by year and differentiated by color. Selecting a country in View A triggers a reprojection of the timeline from a global to a national scale, providing a clearer visualization of that specific country's incident volume on the timeline; the same mechanism also applies when selecting multiple countries. Furthermore, it is possible to select individual incident types to focus specifically on their actual values. Brushing restricts every
+analytic to the window.
+
+\textbf{View D: contrast panel.} One row per indicator, grouped into the six questions
+of a profile: who attacks, what kind of attack, against whom, how they get in, with what
+effect, why. Each row utilizes a dumbbell design: a hollow dot for the comparison group's rate, a
+filled dot for the selection's, and a segment whose length represents the difference and whose
+colour indicates its sign.
+
+\textbf{View E: impact histogram.} A count of the selection over EuRepoC's own impact indicator score, 0 to 15, with the bands the repository defines (minor 1--5, low 6--10, medium 11 and above). The score is 0 for 1,428 of the 3,414 incidents, and in every one of those cases both the functional and the intelligence impact field are marked "not available": a zero is a missing value, not a harmless incident. Those incidents are therefore left out of the bars and reported in words above the chart, as how many of the selected incidents carry a coded score. The view starts no computation, it is a tally, and it is what makes the coverage break of Section~\ref{sec:insights} visible as a shape.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{insight-2-coding-break.png}
+\includegraphics[width=\columnwidth]{insight-2b-coding-break-recent.png}
+\caption{The same interface with the brush on 2000--2013 (top) and on 2022--2024 (bottom).
+The impact card reports 4 of 564 coded in the first window and 1{,}758 of 1{,}777 in the
+second; the contrast panel leads with ``not available'' features only in the first.}
+\label{fig:break}
+\end{figure}
+
+\section{Analytics}
+
+None of the three computations can be performed without a selection. The contrast panel is empty by default when loading, and the analytics endpoints reject a request without a selection, so no typed URL can produce a "global" result.
+
+\subsection{Standardized deviation}
+
+For the country-sector contingency of the current selection, the observed proportion is standardized with respect to the expected one, $z=(x-\mu)/\sigma$. The map recolors on $z$ with a diverging scale. Cells with an expected frequency of less than 5 are \emph{marked} with a hatching and a "small sample" badge rather than suppressed: hiding them would prevent the analyst from distinguishing a reliable zero from an unreliable one. The residual is calculated on the selection minus its country filter, because asking which countries are unusual within a selection defined by the choice of countries is circular reasoning: measured, choosing Italy alone brought Italy to 100\% of its selection versus an expected 3\%.
+
+\subsection{Local re-projection}
+
+A lasso re-fits t-SNE to just the included incidents, with the same seed and a subset-adjusted perplexity, $(n-1)/3$, with an upper limit of 30. Below 30 incidents, the request is rejected with a message rather than an embedding. The threshold is measured: repeated random subsets show the spread of trustworthiness among subsets of the same size halving between $n=15$ and $n=30$, so 30 is the point at which the layout becomes \emph{reproducible}, not the point at which it becomes good. Each accepted reprojection reports its $n$, its perplexity, and its trustworthiness in a banner (Fig.~\ref{fig:reproject}), because a local and global layout appear similar while their axes have different meanings.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{insight-1b-russia-reprojected.png}
+\caption{Dimensionality reduction within the analysis flow. A lasso on the Russian cluster refits t-SNE only on the enclosed incidents; the banner indicates that the layout is local and reports $n$, the adjusted perplexity, and the trustworthiness of the new embedding. The other views follow the same selection: the map switches to the standardized deviation and the contrast panel recalculates.}
+
+\label{fig:reproject}
+\end{figure}
+
+\subsection{Contrastive z-scores}
+
+For each of the 123 indicators, the proportion of those in the selection group that possess it is compared to the proportion in the comparison group using a two-proportion pooled $z$-test. The comparison group is the complement of the selection, except when exactly two countries are selected, in which case it becomes the second country; with three or more countries, there is no clear "B" to name, as measured by comparing $\{$IT, DE, FR$\}$ with each member in turn as the pivot, since none of the first five elements/features share two of the three pivots.
+
+Bar length and ranking intentionally encode different quantities. Segment length represents the percentage difference, a measure of effect; ranking is based on $|z|$, which weights the number of incidents on which that difference is based. A feature that exhibits a large difference across six incidents is represented by a long segment and sinks in the list. Features that fail the normal approximation validity condition are displayed with faded and dashed lines rather than being removed, and a group with fewer than 20 incidents is discarded a priori.
+
+\section{Insights}\label{sec:insights}
+
+Five results, each reachable via a gesture, are documented, produced by one of the three analyses and reported with their corresponding $z$ value; $|z|\geq 2$ is our threshold for "more than noise," and values/figures below that threshold are marked as such. A script recalculates each number by calling the same endpoints used by the interface.  
+
+\subsection{Russia splits into two operational families}
+
+Selecting Russia (220 incidents as the target), the highlighted marks are concentrated in two dense regions of the projection. Selecting ("Lassoing") each region in turn yields a weighted intensity of 1.59 versus 3.26. Compared to the other Russian incidents, the first is defined by a single-day impact ($+73.5 pp$, $z=10.8$) with no data breach, the second by data exfiltration ($+65.9 pp$, $z=10.0$) and an offline conflict over territory and resources. Both are projected reliably (trustworthiness of 0.938 and 0.977).
+
+The two families are \emph{not} separated by the attacker: Ukrainian military intelligence and volunteer groups appear in both, and the percentage without a named initiating state is 38\% versus 40\%. The projection cut them by what the operation does and how deep it gets, which is the cut a defender needs and one no actor-based grouping would produce.
+
+\subsection{A coding break masquerading as a trend}
+
+\begin{table}[t]
+\caption{Coverage of three EuRepoC blocks per year, as reported by the tool. The 2019–2023 period dominates any comparison that includes it.}
+\label{tab:coverage}
+\centering
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Year & $n$ & law n/a & downtime n/a & types per incident \\
+\midrule
+2013 & 147 & 100.0\% & 100.0\% & 1.21 \\
+2016 & 166 & 98.8\%  & 98.8\%  & 1.35 \\
+2019 & 91  & 86.8\%  & 85.7\%  & 1.71 \\
+2020 & 71  & 54.9\%  & 56.3\%  & 1.75 \\
+2022 & 354 & 16.7\%  & 12.1\%  & 1.62 \\
+2024 & 700 & 2.1\%   & 0.3\%   & 2.04 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Brushing of the 2000-2013 period yields five "stronger" features that are all artifacts of the coding (Table~\ref{tab:coverage}, and Fig.~\ref{fig:break} shows the two windows side by side): fields that simply weren't populated in the early years, at $|z|$ between 26 and 34. Two things move simultaneously through the break: empty fields begin to be coded, and the number of type labels associated with an incident grows from 1.21 to 2.04; so part of the dramatic growth in the timeline is due to the growth in the granularity of the coding rather than the threat.
+
+The impact score reports the same break from another side. EuRepoC scores impact from 0 to 15; the score is 0 for 1,428 incidents, all of which have both impact fields marked "not available". The share of zeros per year falls from 100.0\% in 2013 to 84.6\% in 2019, 4.8\% in 2022 and 0.1\% in 2024. Brushing 2000-2013 leaves the fifth view with 4 of 564 incidents coded and almost nothing to draw; moving the same brush to 2022-2024 gives 1,758 of 1,777 coded, with a mode between 5 and 9. The mean of the column over the corpus, 3.94, falls in the valley between its two modes and describes no incident: a summary statistic hides exactly what the distribution shows.
+
+This is both a data observation, produced by the tool's contrast panel, and a trap set by the panel itself: a brush crossing the break answers a question about editorial practice while appearing to be an answer about cyber conflict. The working rule we have adopted is to compare characteristics only within the homogeneous era.  
+
+\subsection{Attribution follows the adversary, not the victim}
+
+On the attribution layer (Fig.~\ref{fig:attribution}), the share of incidents with no named initiator state runs from 17\% to 72\% across the 27
+countries with at least 45 incidents, without a gap: ten of them sit between Turkey at 31\%
+and the Netherlands at 49\%. We therefore compare the two ends of a continuum rather than
+two populations. At the low end (KR 17\%, SA 21\%, AE 24\%, IN, CN, VN, UA), at the high end
+(FR 72\%, ES, MX, CA, IT, US, DE, CH, AU, BE). The contrast panel explains the difference between the ends: the average share of incidents with a state-affiliated initiator is 45.2\% in the first group versus 15.6\% in the second. The intuitive assumption, that Western states with mature CERTs attribute incidents better, is flawed; what changes is who attacks them.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{insight-3-attribution-regimes.png}
+\caption{The attribution level, the second state of the map display switch. The sequential scale reports the percentage of incidents in a country without a named initiating state, and is read here at its two ends; the scale is continuous and the grouping is ours, not the data's. No selection is active, so the three analyses yielded no results: the contrast panel is empty and its header reads \emph{no selection}.}
+\label{fig:attribution}
+\end{figure}
+
+\subsection{Ukraine and Russia are mirror images}
+
+By selecting both countries, the panel switches to a direct comparison (Fig.~\ref{fig:uaru}). Ukraine is attacked by states (36.5\% vs. 10.4\%, $z=5.79$), Russia by non-state groups (53.0\% vs. 13.1\%, $z=-7.46$) who publish what they steal (doxing 27.2\% vs. 5.8\%). The same war produces two different threat profiles.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{insight-4-ukraine-russia.png}
+\caption{Direct comparison mode: Ukraine vs. Russia. The panel indicates the current comparison, and each row shows both percentages.}
+\label{fig:uaru}
+\end{figure}
+
+\subsection{Italy against Germany}
+
+Italian incidents are attributed to identifiable non-state groups two and a half times more often than German ones (46.9\% against 18.6\%, $z=4.59$), with no state held responsible, while half of the German incidents are attributed to nobody at all (49.4\% against 25.9\%, $z=-3.47$). Against the rest of the world Italy shows critical infrastructure at 61.7\% (against 40.0\%) and ransomware at 27.2\% (against 14.4\%). For a CSIRT the difference is operational: a trackable criminal ecosystem on one side, a documentation gap on the other (Fig.~\ref{fig:itde}).
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{insight-5-italy-germany.png}
+\caption{Italy clicked and Germany ctrl-clicked, the second use of the direct comparison
+mode. The contrast panel heads the comparison in force and reports both rates on every
+row; the impact card counts the two countries together, 171 of their 237 incidents
+carrying a coded score.}
+\label{fig:itde}
+\end{figure}
+
+\section{Verification}
+
+Because two of the evaluated properties of this project are negative assertions (no analytic is initiated from a menu and no results exist before an interaction), we made them verifiable rather than asserted. Four suites are run on demand: a static audit of the sources (every store mutator called from exactly one view; the analytics endpoints respond 404 to GET and 422 to an empty selection), a static audit of the visual encodings (palettes measured against three simulated color vision deficits, scales diverging only on signed quantities, a key in each view, whether a legend strip or a labelled axis), and two runtime suites run from the browser console that replay interactions and verify what's on screen. They currently report 26/26, 48/48, 25/25, and 38/38.
+
+The suites have repeatedly proven useful: they identified a simple click in the projection that reprojected a country selection, and a resize redraw implementation that directly reached the views instead of going through the shared store, reported as "8 calls found" versus the four allowed by the contract.  
+
+\section{Limitations}
+
+The corpus records \emph{publicly reported} incidents, coded by humans; underreporting is invisible to the tool, and Section~\ref{sec:insights} shows how strongly coding practice can influence a result. Each contrast tests 123 indicators without correction for multiple comparisons, which is why our claims are based on $|z|>3$ and features that agree with each other. The panel also draws only the strongest one or two rows per dimension, between six and
+twelve of the 123 indicators; the rest are in the response and in the script's output
+rather than on screen. Initiators are not a map layer: the mirror image result was intended to be read through the contrast panel rather than viewed geographically. Finally, a block of three or more countries is compared to the rest of the world as a group, without a breakdown by member.
+
+\section{Conclusion}
+
+Threat-Shape demonstrates that a curated incident corpus addresses questions its official dashboard doesn't. By making the projection of incident profiles the organizational view and associating three statistics with actions taken on it, the tool answers the question of what a national threat profile is \emph{made of}, rather than its extent. The findings in Section~\ref{sec:insights}, two operational families behind a country's incident count, an attribution scheme that inverts the intuitive explanation, and a coding discontinuity that any reading based solely on the count would have mistaken for a trend, prove that this distinction is important.
+
+\begin{thebibliography}{99}
+
+\bibitem{eurepoc-data}
+K. Zettl-Schabath, J. Bund, M. Müller, C. Borrett, J. Hemmelskamp, A. Alibegovic,
+E. Bajra, A. Jazxhi, E. Kellenter, A. Sachs, and C. Shelley,
+``Global Dataset of Cyber Incidents (1.3.2),'' European Repository of Cyber Incidents,
+2025. doi:10.5281/zenodo.14965395
+
+\bibitem{eurepoc-dash}
+European Repository of Cyber Incidents, ``Cyber Incident Dashboard.''
+\url{https://eurepoc.eu/dashboard/} (accessed Sep. 2026).
+
+\bibitem{akoto}
+W. Akoto, S. Bradshaw, and T. Herr, ``Do data localization policies really improve
+cybersecurity outcomes?,'' \emph{Journal of Cybersecurity}, vol. 12, no. 1,
+art. tyag025, 2026.
+
+\bibitem{shiravi}
+H. Shiravi, A. Shiravi, and A. A. Ghorbani, ``A survey of visualization systems for
+network security,'' \emph{IEEE Trans. Vis. Comput. Graph.}, vol. 18, no. 8,
+pp. 1313--1329, 2012.
+
+\bibitem{bohm}
+F. Böhm, F. Menges, and G. Pernul, ``Graph-based visual analytics for cyber threat
+intelligence,'' \emph{Cybersecurity}, vol. 1, no. 1, art. 16, 2018.
+
+\bibitem{sacha}
+D. Sacha, L. Zhang, M. Sedlmair, J. A. Lee, J. Peltonen, D. Weiskopf, S. C. North, and
+D. A. Keim, ``Visual interaction with dimensionality reduction: A structured literature
+analysis,'' \emph{IEEE Trans. Vis. Comput. Graph.}, vol. 23, no. 1, pp. 241--250, 2017.
+
+\bibitem{tsne}
+L. van der Maaten and G. Hinton, ``Visualizing data using t-SNE,'' \emph{J. Mach. Learn. Res.}, vol. 9, pp. 2579--2605, 2008.
+
+\bibitem{venna}
+J. Venna and S. Kaski, ``Local multidimensional scaling,'' \emph{Neural Networks}, vol. 19, no. 6, pp. 889--899, 2006.
+
+\bibitem{misread}
+M. Wattenberg, F. Viégas, and I. Johnson, ``How to use t-SNE effectively,''
+\emph{Distill}, 2016. doi:10.23915/distill.00002
+
+\bibitem{roberts}
+J. C. Roberts, ``State of the art: Coordinated and multiple views in exploratory
+visualization,'' in \emph{Proc. 5th Int. Conf. Coordinated and Multiple Views in
+Exploratory Visualization (CMV)}, 2007, pp. 61--71.
+
+\bibitem{gleicher}
+M. Gleicher, D. Albers, R. Walker, I. Jusufi, C. D. Hansen, and J. C. Roberts, ``Visual comparison for information visualization,'' \emph{Information Visualization}, vol. 10, no. 4, pp. 289--309, 2011.
+
+\end{thebibliography}
+
+\end{document}

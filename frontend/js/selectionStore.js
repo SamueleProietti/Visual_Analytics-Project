@@ -1,0 +1,236 @@
+/* Shared selection store — the coordination hub for the four views.
+ *
+ * All four views publish to it and subscribe to it, and none of them talks to another
+ * directly. It is a separate module deliberately, because this is where the graded
+ * rule is enforced structurally:
+ *
+ *   "None of these three computations may run before a selection exists."
+ *
+ * With one authority on what is selected, "does a selection exist?" has exactly one
+ * answer, and isEmpty() is the guard every analytic checks. Had each view kept its own
+ * selection, that rule would depend on four separate pieces of discipline.
+ *
+ * THREE INDEPENDENT SOURCES, COMBINED BY INTERSECTION:
+ *   countries  <- View A, click / ctrl-click
+ *   lasso      <- View B, free lasso over the projection
+ *   yearRange  <- View C, timeline brush
+ *
+ * Intersection, not union, because the proposal describes the brush as *restricting*
+ * every computation to its window: an analyst who lassoes a cluster and then brushes
+ * 2022-2024 means "these incidents, in those years", not "either".
+ */
+
+"use strict";
+
+const SelectionStore = (() => {
+  const subscribers = new Set();
+
+  /** null means "this source is not filtering", which is different from "empty". */
+  let state = {
+    countries: [],      // ISO alpha-2 codes, [] = no country filter
+    lasso: null,        // Set of incident_id, null = no lasso
+    yearRange: null,    // [from, to] inclusive, null = no time filter
+  };
+
+  let incidents = [];   // the corpus, injected once at startup
+
+  // ---------------------------------------------------------------------------------
+
+  function setCorpus(all) {
+    incidents = all || [];
+  }
+
+  function getState() {
+    // A copy, so a subscriber cannot mutate the store by holding on to what it got.
+    return {
+      countries: [...state.countries],
+      lasso: state.lasso ? new Set(state.lasso) : null,
+      yearRange: state.yearRange ? [...state.yearRange] : null,
+    };
+  }
+
+  /** True when nothing is selected anywhere. The guard for every analytic. */
+  function isEmpty() {
+    return state.countries.length === 0 && state.lasso === null
+      && state.yearRange === null;
+  }
+
+  function subscribe(fn) {
+    subscribers.add(fn);
+    return () => subscribers.delete(fn);   // caller keeps the unsubscribe handle
+  }
+
+  function notify(origin) {
+    const snapshot = resolve();
+    for (const fn of subscribers) {
+      // One failing subscriber must not stop the others from updating, or a bug in one
+      // view would silently freeze the other three.
+      try {
+        fn(snapshot, origin);
+      } catch (error) {
+        console.error("[selection] subscriber failed:", error);
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------------
+  // mutations - each names its origin, so a view can ignore echoes of its own action
+  //
+  // A mutation that leaves the state as it was publishes NOTHING. A notification wakes
+  // every subscriber, and a subscriber cannot tell "the selection changed" from "someone
+  // said the same thing again": a plain click on the timeline, which clears a brush that
+  // did not exist, made View D refetch and flash its contrast, and made View B drop a
+  // local re-projection because the (non-)change came from another view. Guarding here,
+  // once, stops every such echo instead of patching each gesture that can produce one.
+
+  const sameList = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+  const sameSet = (a, b) => (a === null || b === null ? a === b
+    : a.size === b.size && [...a].every((v) => b.has(v)));
+  const sameRange = (a, b) => (a === null || b === null ? a === b
+    : a[0] === b[0] && a[1] === b[1]);
+
+  function setCountries(codes, { additive = false } = {}) {
+    const next = additive ? new Set(state.countries) : new Set();
+    for (const code of codes) {
+      additive && next.has(code) ? next.delete(code) : next.add(code);
+    }
+    if (sameList([...next], state.countries)) return;
+    state.countries = [...next];
+    notify("map");
+  }
+
+  function setLasso(incidentIds) {
+    const next = incidentIds && incidentIds.size ? new Set(incidentIds) : null;
+    if (sameSet(next, state.lasso)) return;
+    state.lasso = next;
+    notify("projection");
+  }
+
+  function setYearRange(range) {
+    const next = range ? [Math.min(...range), Math.max(...range)] : null;
+    if (sameRange(next, state.yearRange)) return;
+    state.yearRange = next;
+    notify("timeline");
+  }
+
+  /** Send the current selection to the subscribers again, unchanged.
+   *
+   * For a redraw - a resized window - where the views have to be rebuilt at a new size
+   * and then handed back what is already selected. It sets nothing: the snapshot the
+   * subscribers receive is resolved from the state the store already holds, so this
+   * cannot produce a selection that no interaction made, and every view still reacts
+   * through the one subscription rather than being called directly.
+   */
+  function republish(origin) {
+    notify(origin || "republish");
+  }
+
+  function clear() {
+    if (isEmpty()) return;
+    state = { countries: [], lasso: null, yearRange: null };
+    notify("clear");
+  }
+
+  // ---------------------------------------------------------------------------------
+
+  /**
+   * Apply the three filters and describe the result.
+   *
+   * Returns the selected incidents, their complement, and a comparison mode written out
+   * in full - View D must never leave the comparison target implicit.
+   */
+  function resolve() {
+    if (isEmpty()) {
+      return {
+        empty: true, ids: new Set(), selected: [], complement: incidents,
+        mode: "no selection", sources: [],
+      };
+    }
+
+    const countrySet = new Set(state.countries);
+    const selected = incidents.filter((incident) => {
+      if (countrySet.size
+          && !(incident.countries || []).some((c) => countrySet.has(c))) return false;
+      if (state.lasso && !state.lasso.has(incident.incident_id)) return false;
+      if (state.yearRange) {
+        // Undated incidents cannot satisfy a time window. There are 92 of them, and
+        // they drop out of any brushed selection by construction.
+        if (incident.year == null) return false;
+        if (incident.year < state.yearRange[0]
+            || incident.year > state.yearRange[1]) return false;
+      }
+      return true;
+    });
+
+    const ids = new Set(selected.map((d) => d.incident_id));
+    const complement = incidents.filter((d) => !ids.has(d.incident_id));
+
+    return {
+      empty: false, ids, selected, complement,
+      mode: describeMode(), sources: activeSources(),
+    };
+  }
+
+  /**
+   * Resolve while ignoring one source — the geographic residual needs this.
+   *
+   * Asking "which countries are over-represented in this selection?" is circular when
+   * the selection was DEFINED by picking countries: select Italy and Italy is 100% of
+   * the selection against an expected 3%, giving a meaningless z of +23. Measured, not
+   * theorised - it is what the first run of the residual endpoint produced.
+   *
+   * So the map computes its residual over the selection MINUS the country filter: the
+   * lasso and the brush set the context, and the map answers "inside that context,
+   * which countries deviate?". The clicked country stays highlighted as the focus, but
+   * it no longer defines the very question being asked about it.
+   */
+  function resolveIgnoring(source) {
+    const saved = { ...state };
+    if (source === "countries") state = { ...state, countries: [] };
+    if (source === "lasso") state = { ...state, lasso: null };
+    if (source === "yearRange") state = { ...state, yearRange: null };
+    const result = resolve();
+    state = saved;
+    return result;
+  }
+
+  function activeSources() {
+    const sources = [];
+    if (state.countries.length) sources.push("map");
+    if (state.lasso) sources.push("projection");
+    if (state.yearRange) sources.push("timeline");
+    return sources;
+  }
+
+  /** The comparison, spelled out. View D puts this straight into its header. */
+  function describeMode() {
+    const parts = [];
+    if (state.countries.length === 1) {
+      parts.push(state.countries[0]);
+    } else if (state.countries.length === 2) {
+      // Two countries switch the contrast from vs-rest to a direct A-vs-B.
+      return `"${state.countries[0]}" vs "${state.countries[1]}"`
+        + timeSuffix() + lassoSuffix();
+    } else if (state.countries.length > 2) {
+      parts.push(`${state.countries.length} countries`);
+    }
+    if (state.lasso) parts.push(`${state.lasso.size} lassoed incidents`);
+    const subject = parts.length ? parts.join(" + ") : "time window";
+    return `"${subject}"${timeSuffix()} vs rest of world`;
+  }
+
+  function timeSuffix() {
+    return state.yearRange ? ` (${state.yearRange[0]}–${state.yearRange[1]})` : "";
+  }
+
+  function lassoSuffix() {
+    return state.lasso ? ` within ${state.lasso.size} lassoed incidents` : "";
+  }
+
+  return {
+    setCorpus, subscribe, getState, isEmpty, resolve, resolveIgnoring,
+    setCountries, setLasso, setYearRange, clear, republish,
+    // Exposed for the tests; the views use the methods above.
+    _subscriberCount: () => subscribers.size,
+  };
+})();
