@@ -1,8 +1,7 @@
 /* Threat-Shape — application bootstrap.
  *
- * Confirms the backend is reachable, loads the four datasets once, and starts the
- * four views on the shared selection store - the pub/sub hub that makes them
- * bidirectionally coordinated.
+ * Confirms the backend is reachable, loads the four datasets once, and starts the five
+ * views on the shared selection store, the pub/sub hub that coordinates them.
  */
 
 "use strict";
@@ -189,9 +188,9 @@ async function bootstrap() {
   // starts empty, and isEmpty() is what every analytic checks before running.
   SelectionStore.setCorpus(store.incidents || []);
 
-  // Every view subscribes. Each is both source and target - the map
-  // publishes clicks, the projection publishes lassos, the timeline publishes brushes,
-  // and all four redraw from the same snapshot regardless of which one caused it.
+  // Every view subscribes. The map publishes clicks, the projection publishes lassos and
+  // the timeline publishes brushes; all five redraw from the same snapshot regardless of
+  // which one caused it.
   //
   // No view listens to another view directly. That is what keeps the wiring at four
   // subscriptions instead of the twelve a bidirectional mesh would need, and it is why
@@ -203,20 +202,6 @@ async function bootstrap() {
     ViewD.applySelection(snapshot, origin);
     ViewE.applySelection(snapshot, origin);
 
-    // The local re-projection fires on the LASSO only, which is what the design
-    // for View B. Not on every selection change: a refit costs two to three seconds,
-    // and running it on each step of a ctrl-click sequence would make the interface
-    // feel broken while telling the analyst nothing new.
-    //
-    // The gate asks whether a lasso EXISTS, not only where the notification came from.
-    // Checking the origin alone was not enough: a plain click in View B publishes
-    // setLasso(null) with origin "projection", and with a country still selected the
-    // snapshot is not empty - so clicking the plot to dismiss nothing re-projected the
-    // map's selection, a refit the analyst never asked for.
-    if (origin === "projection" && SelectionStore.getState().lasso && !snapshot.empty) {
-      ViewB.reproject(snapshot).catch((error) =>
-        console.error("[threat-shape] re-projection failed:", error));
-    }
   });
 
   console.info(`[selection] store ready · empty=${SelectionStore.isEmpty()} · `

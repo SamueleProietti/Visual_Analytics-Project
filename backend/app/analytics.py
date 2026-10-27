@@ -1,10 +1,13 @@
 """On-demand analytics. Nothing here runs without a selection.
 
-The three analytics live here: the standardized deviation, the local re-projection
-and the contrastive z-scores. Every entry point
-takes an explicit set of incident ids and refuses an empty one, so the rule
-that no computation runs before a selection exists is enforced at the layer
-that does the computing, not only in the interface that calls it.
+Both analytics live here: the standardized deviation and the contrastive z-scores. Every
+entry point takes an explicit set of incident ids and refuses an empty one, so the rule
+that no computation runs before a selection exists is enforced at the layer that does the
+computing, not only in the interface that calls it.
+
+The projection computes nothing on demand. Its two global embeddings are built offline by
+scripts/03 and scripts/08; a lasso selects incidents, and the other views answer that
+selection. That is all the gesture does.
 
 WHERE THE RESIDUAL IS COMPUTED, AND WHY IN TWO PLACES
 
@@ -146,98 +149,6 @@ def residuals_summary(rows):
 
 
 # --------------------------------------------------------------------------------------
-# Local re-projection
-# --------------------------------------------------------------------------------------
-
-# Below this many incidents the local embedding stops being worth showing.
-#
-# Chosen by measurement. Trustworthiness of a locally refitted t-SNE against the 20-D
-# PCA space, at a FIXED k of 4 and averaged over 15 random subsets per size (mean, then
-# standard deviation across those subsets):
-#
-#     n = 10  ->  0.817  +/- 0.055        n =  30  ->  0.937  +/- 0.023
-#     n = 12  ->  0.814  +/- 0.049        n =  60  ->  0.960  +/- 0.011
-#     n = 15  ->  0.899  +/- 0.045        n = 100  ->  0.970  +/- 0.008
-#     n = 20  ->  0.921  +/- 0.033
-#
-# The mean turns early, between 12 and 15. The spread is what decides the threshold: at
-# n=15 the same-sized subset can score anywhere from 0.79 to 0.96 depending on which
-# points happen to fall in it, so a good-looking local layout there is as much luck as
-# signal. The spread halves by n=25-30 and keeps falling. 30 is therefore where the
-# result becomes REPRODUCIBLE, not where it becomes good.
-#
-# Both k and the number of repetitions matter, and getting them wrong is easy: an
-# earlier version of this measurement used one subset per size and let k grow with n,
-# which compares quantities that are not comparable and produced a different, wrong
-# curve. The predecessor CIC-IDS2017 project used n >= perplexity, which is only
-# sklearn's hard floor.
-MIN_SUBSET = 30
-
-# Perplexity is the effective neighbour count, so it cannot approach the sample size.
-# (n-1)/3 is the standard ceiling; 30 matches the global embedding, so a
-# local layout of a large selection is directly comparable with it.
-PERPLEXITY_CAP = 30.0
-PERPLEXITY_FLOOR = 2.0
-
-TSNE_SEED = 42          # same seed as the global embedding: a selection re-projects
-TSNE_MAX_ITER = 800     # identically every time it is made
-
-
-def adapted_perplexity(n):
-    """Perplexity for a subset of size n, capped so it stays below the sample size."""
-    return float(max(PERPLEXITY_FLOOR, min(PERPLEXITY_CAP, (n - 1) / 3.0)))
-
-
-def local_reprojection(incident_ids):
-    """Local re-projection - refit t-SNE on the selected subset alone.
-
-    Returns either a fresh 2-D layout of just those incidents, or an explicit refusal
-    when the subset is too small. Refusing is the point: an embedding of twelve points
-    looks exactly as confident as an embedding of twelve hundred, and the analyst has no
-    way to tell them apart from the picture.
-    """
-    if not incident_ids:
-        raise ValueError("local_reprojection requires a non-empty selection")
-
-    from sklearn.manifold import TSNE, trustworthiness
-
-    components = data.pca_components()
-    subset = components[components["incident_id"].isin(incident_ids)]
-    n = len(subset)
-
-    if n < MIN_SUBSET:
-        return {
-            "ok": False,
-            "reason": f"too small to project: {n} incidents, minimum {MIN_SUBSET}",
-            "n": n, "minimum": MIN_SUBSET, "points": [],
-            "perplexity": None, "trustworthiness": None,
-        }
-
-    features = subset.drop(columns=["incident_id"]).to_numpy()
-    perplexity = adapted_perplexity(n)
-
-    model = TSNE(n_components=2, perplexity=perplexity, max_iter=TSNE_MAX_ITER,
-                 init="pca", random_state=TSNE_SEED)
-    embedding = model.fit_transform(features)
-
-    # Reported with the result rather than kept quiet: the analyst should be able to see
-    # how faithful this particular local layout is, not just that one was produced.
-    neighbours = int(max(1, min(10, n // 3)))
-    score = float(trustworthiness(features, embedding, n_neighbors=neighbours))
-
-    ids = subset["incident_id"].to_numpy()
-    points = [{"incident_id": int(ids[i]),
-               "x": round(float(embedding[i, 0]), 4),
-               "y": round(float(embedding[i, 1]), 4)} for i in range(n)]
-
-    return {
-        "ok": True, "reason": "", "n": n, "minimum": MIN_SUBSET, "points": points,
-        "perplexity": round(perplexity, 2),
-        "trustworthiness": round(score, 4),
-    }
-
-
-# --------------------------------------------------------------------------------------
 # Contrastive z-scores
 # --------------------------------------------------------------------------------------
 
@@ -284,10 +195,12 @@ def contrastive_z(selection_ids, comparison_ids=None):
         mode = "a-vs-b"
 
     n_a, n_b = len(group_a), len(group_b)
-    if n_a < MIN_GROUP or n_b < MIN_GROUP:
+    too_small = n_a < MIN_GROUP or n_b < MIN_GROUP
+    reason = (f"groups too small to contrast: {n_a} vs {n_b}, minimum {MIN_GROUP}"
+              if too_small else "")
+    if n_a == 0 or n_b == 0:
         return {
-            "ok": False,
-            "reason": f"groups too small to contrast: {n_a} vs {n_b}, minimum {MIN_GROUP}",
+            "ok": False, "reason": reason,
             "mode": mode, "n_a": n_a, "n_b": n_b, "features": [],
         }
 
@@ -332,9 +245,13 @@ def contrastive_z(selection_ids, comparison_ids=None):
     # suppressed. They simply do not get to occupy the positions the eye reads first.
     features.sort(key=lambda f: (not f["reliable"], -abs(f["z"])))
 
+    # Below MIN_GROUP the contrast is still refused - ok is False and the reason says
+    # why - but the counts travel with the refusal. View D draws them as raw rates on
+    # its fixed indicators, which is a description of a small group and not a test on
+    # it; nothing may read these z as findings.
     reliable = [f for f in features if f["reliable"]]
     return {
-        "ok": True, "reason": "", "mode": mode,
+        "ok": not too_small, "reason": reason, "mode": mode,
         "n_a": n_a, "n_b": n_b, "features": features,
         "n_reliable": len(reliable),
         "n_features": len(features),

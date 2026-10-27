@@ -25,7 +25,7 @@ proietti.1946329@studenti.uniroma1.it}
 \maketitle
 
 \begin{abstract}
-Analyses typically conducted on public cyber incident databases focus on the number of incidents a country has experienced, the dates, and the type of incident. Threat-Shape is an advanced visual analysis tool that focuses on the \emph{composition} of a country’s cybersecurity threats, analyzing which sectors, techniques, and actors are involved and how this differs from that of another country or from global expectations. The system uses five coordinated views of the 3,414 incidents in the European Cyber Incident Repository (EuRepoC), combined with three calculations that are performed in response to a visual action: a standardized deviation per country, a t-SNE reprojection readapted to the selected subset, and a two-proportion contrastive test that ranks the indicators distinguishing a selection from its comparison group. When applied to the corpus, the tool divides incidents targeting Russia into two operational families that differ by a factor of two in terms of intensity while sharing the same attackers; it shows that attribution rates follow the composition of the adversaries rather than the victim’s forensic capability; and it highlights a gap in the coding coverage of source data that would otherwise be interpreted as a change in the threat itself.
+Analyses typically conducted on public cyber incident databases focus on the number of incidents a country has experienced, the dates, and the type of incident. Threat-Shape is an advanced visual analysis tool that focuses on the \emph{composition} of a country’s cybersecurity threats, analyzing which sectors, techniques, and actors are involved and how this differs from that of another country or from global expectations. The system uses five coordinated views of the 3,414 incidents in the European Cyber Incident Repository (EuRepoC), combined with two calculations that are performed in response to a visual action: a standardized deviation per country, and a two-proportion contrastive test that ranks the indicators distinguishing a selection from its comparison group. The projection of the incidents can be drawn in two ways, and we measure which of them is the more faithful to the data. When applied to the corpus, the tool divides incidents targeting Russia into two operational families that differ by a factor of two in terms of intensity while sharing the same attackers; it shows that attribution rates follow the composition of the adversaries rather than the victim’s forensic capability; and it highlights a gap in the coding coverage of source data that would otherwise be interpreted as a change in the threat itself.
 \end{abstract}
 
 \section{Introduction}
@@ -39,7 +39,7 @@ Threat-Shape is our answer to this challenge, engineered to resolve the issues o
 \begin{itemize}
 \item a five-view coordinated interface over the EuRepoC corpus in which the projection
 of incident \emph{profiles} is the organising view;
-\item three analytics that are computed on the live selection and are reachable only
+\item two analytics that are computed on the live selection and are reachable only
 through a visual gesture, no result exists before an
 interaction;
 \item a contrast panel that reports both rates being compared, grouped into the six
@@ -61,7 +61,7 @@ type and sector, with a table view for individual incidents. Each question it an
 tends to focus on \emph{how many, where, when}. However, the composition of a profile is not among them, and neither is any form of dimensionality reduction, for instance what makes
 Italy's incidents different from Germany's once their different sizes are accounted for. Threat-Shape
 deliberately does not reproduce its counting views; the timeline is the only overlap, and
-it is present as the temporal filter that restricts the three analytics rather than as an
+it is present as the temporal filter that restricts the two analytics rather than as an
 answer in itself.
 
 \subsection{Studies on the same corpus}
@@ -89,10 +89,10 @@ question. A graph answers \emph{what is connected to what}; our projection answe
 \subsection{Interactive dimensionality reduction}
 
 Sacha et al.~\cite{sacha} survey how analysts interact with dimensionality reduction and
-find seven recurring interaction scenarios. Among the identified scenarios, we implemented recomputing a projection on a subset in the view, this is particularly challenging, as the result must remain interpretable even when the subset becomes small. We use t-SNE~\cite{tsne},
-report its trustworthiness~\cite{venna} with every local re-projection, and follow the
+find seven recurring interaction scenarios. The one we implement is the selection of items in the projection, which the other views then answer. We use t-SNE~\cite{tsne},
+judge each layout by its trustworthiness~\cite{venna} against the original columns, and follow the
 warnings collected by Wattenberg et al.~\cite{misread} about how its pictures are
-misread; they drove concrete decisions in Section~\ref{sec:design}.
+misread; they drove concrete decisions in Section~\ref{sec:design}. The authors of t-SNE reduce their data with PCA to 30 dimensions before every experiment, to speed up the computation and suppress some noise~\cite{tsne}; Section~\ref{sec:projection} measures whether that step helps on our data.
 
 \subsection{Coordination and comparison}
 
@@ -101,10 +101,8 @@ comparison~\cite{gleicher} by implementing an explicit encoding of the differenc
 
 \subsection{What is different here}
 
-Counting tools answer volume, graph tools answer connection, projection tools rarely make the projection the entry point to per-feature statistics, Threat-Shape puts the three together. A selection made on a map, a projection or a timeline parameterises three
-statistics that are reported back into the same views, and the projection itself is
-refitted on that selection so that structure the global embedding had to compress can
-re-emerge.
+Counting tools answer volume, graph tools answer connection, projection tools rarely make the projection the entry point to per-feature statistics, Threat-Shape puts the three together. A selection made on a map, a projection or a timeline parameterises two
+statistics that are reported back into the same views.
 
 \section{Data}
 
@@ -146,13 +144,14 @@ variance.
 
 \subsection{Projection pipeline}
 
-The 127-column matrix is reduced by PCA to 20 components (50.7\% of the variance
-retained), then by t-SNE to two dimensions. PCA is static, offline denoising and is never
-recomputed; t-SNE is the technique integrated in the interactive analysis flow. The global
-embedding uses perplexity 30, chosen by the highest trustworthiness among the candidates
-15, 30 and 50 (0.9877, \textbf{0.9897}, 0.9885 at $k=20$); KL divergence was deliberately
-not the selection criterion, since it falls with perplexity by construction. The seed is
-fixed, so the view is identical across restarts.
+Two layouts of the 127-column matrix are computed offline, and the projection view
+can draw either: t-SNE fitted directly on the 127 standardized columns, and PCA to 20
+components (50.7\% of the variance) followed by t-SNE, which was the pipeline of the
+approved proposal. t-SNE is called as in the course exercises,
+with a fixed seed and every other parameter at its default (perplexity 30, 1{,}000
+iterations), so the view is identical across restarts. KL divergence is never used to
+compare layouts, since it falls with perplexity by construction. Section~\ref{sec:projection}
+compares the two and explains why the view opens on the first.
 
 \section{Design}\label{sec:design}
 
@@ -176,7 +175,7 @@ suffered, the incidents initiated and the most targeted sector. A two-state swit
 
 \textbf{View B: t-SNE projection.} One mark per incident, colour on a sequential
 single-hue ramp for weighted intensity, and size on $\log(1+x)$ of the affected entities
-with the value on the \emph{area} rather than the radius. Following~\cite{misread}, no axis is drawn or labelled. A free lasso is the gesture that triggers the local re-projection.
+with the value on the \emph{area} rather than the radius. Following~\cite{misread}, no axis is drawn or labelled. A two-state switch chooses the layout and two buttons zoom, keeping the marks at their size while the gaps between them open; neither starts a computation. A free lasso selects the incidents it encloses, and the other four views answer that selection.
 
 \textbf{View C: stacked area timeline.} Different incident types are represented by year and differentiated by color. Selecting a country in View A triggers a reprojection of the timeline from a global to a national scale, providing a clearer visualization of that specific country's incident volume on the timeline; the same mechanism also applies when selecting multiple countries. Furthermore, it is possible to select individual incident types to focus specifically on their actual values. Brushing restricts every
 analytic to the window.
@@ -185,7 +184,7 @@ analytic to the window.
 of a profile: who attacks, what kind of attack, against whom, how they get in, with what
 effect, why. Each row utilizes a dumbbell design: a hollow dot for the comparison group's rate, a
 filled dot for the selection's, and a segment whose length represents the difference and whose
-colour indicates its sign.
+colour indicates its sign. Each rate is printed beside its own dot and the difference in percentage points above the segment.
 
 \textbf{View E: impact histogram.} A count of the selection over EuRepoC's own impact indicator score, 0 to 15, with the bands the repository defines (minor 1--5, low 6--10, medium 11 and above). The score is 0 for 1,428 of the 3,414 incidents, and in every one of those cases both the functional and the intelligence impact field are marked "not available": a zero is a missing value, not a harmless incident. Those incidents are therefore left out of the bars and reported in words above the chart, as how many of the selected incidents carry a coded score. The view starts no computation, it is a tally, and it is what makes the coverage break of Section~\ref{sec:insights} visible as a shape.
 
@@ -201,23 +200,11 @@ second; the contrast panel leads with ``not available'' features only in the fir
 
 \section{Analytics}
 
-None of the three computations can be performed without a selection. The contrast panel is empty by default when loading, and the analytics endpoints reject a request without a selection, so no typed URL can produce a "global" result.
+Neither of the two computations can be performed without a selection. The contrast panel is empty by default when loading, and the analytics endpoints reject a request without a selection, so no typed URL can produce a "global" result.
 
 \subsection{Standardized deviation}
 
 For the country-sector contingency of the current selection, the observed proportion is standardized with respect to the expected one, $z=(x-\mu)/\sigma$. The map recolors on $z$ with a diverging scale. Cells with an expected frequency of less than 5 are \emph{marked} with a hatching and a "small sample" badge rather than suppressed: hiding them would prevent the analyst from distinguishing a reliable zero from an unreliable one. The residual is calculated on the selection minus its country filter, because asking which countries are unusual within a selection defined by the choice of countries is circular reasoning: measured, choosing Italy alone brought Italy to 100\% of its selection versus an expected 3\%.
-
-\subsection{Local re-projection}
-
-A lasso re-fits t-SNE to just the included incidents, with the same seed and a subset-adjusted perplexity, $(n-1)/3$, with an upper limit of 30. Below 30 incidents, the request is rejected with a message rather than an embedding. The threshold is measured: repeated random subsets show the spread of trustworthiness among subsets of the same size halving between $n=15$ and $n=30$, so 30 is the point at which the layout becomes \emph{reproducible}, not the point at which it becomes good. Each accepted reprojection reports its $n$, its perplexity, and its trustworthiness in a banner (Fig.~\ref{fig:reproject}), because a local and global layout appear similar while their axes have different meanings.
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\columnwidth]{insight-1b-russia-reprojected.png}
-\caption{Dimensionality reduction within the analysis flow. A lasso on the Russian cluster refits t-SNE only on the enclosed incidents; the banner indicates that the layout is local and reports $n$, the adjusted perplexity, and the trustworthiness of the new embedding. The other views follow the same selection: the map switches to the standardized deviation and the contrast panel recalculates.}
-
-\label{fig:reproject}
-\end{figure}
 
 \subsection{Contrastive z-scores}
 
@@ -225,15 +212,65 @@ For each of the 123 indicators, the proportion of those in the selection group t
 
 Bar length and ranking intentionally encode different quantities. Segment length represents the percentage difference, a measure of effect; ranking is based on $|z|$, which weights the number of incidents on which that difference is based. A feature that exhibits a large difference across six incidents is represented by a long segment and sinks in the list. Features that fail the normal approximation validity condition are displayed with faded and dashed lines rather than being removed, and a group with fewer than 20 incidents is discarded a priori.
 
+\section{Choosing the projection}\label{sec:projection}
+
+The approved proposal reduced the data to 20 principal components before t-SNE. That is
+the recipe of the original paper and of the scikit-learn documentation, both of which give
+speed and noise suppression as the reasons. Neither had been checked on our data, and the
+trustworthiness we first reported, 0.99, was measured against the 20 components: it graded
+the second stage and charged the first one nothing. We therefore built the alternative and
+judged every layout against the 127 columns themselves (Table~\ref{tab:layouts}).
+
+\begin{table}[t]
+\caption{The two layouts against the 127 columns, $k=20$. Trustworthiness penalizes
+false neighbours, continuity lost ones.}
+\label{tab:layouts}
+\centering
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+Layout & trustw. & contin. & true nbrs kept \\
+\midrule
+t-SNE only & \textbf{0.962} & \textbf{0.967} & \textbf{58.4\%} \\
+PCA 20, then t-SNE & 0.916 & 0.949 & 42.8\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The direct layout is the most faithful on both kinds of error. The gap does not depend on
+the perplexity: it is between $+0.033$ and $+0.050$ at 5, 15, 30, 50 and 100, where two runs
+of the same pipeline differ by 0.0006. It depends on the cut: keeping 40 components gives
+0.939, 60 gives 0.956 and 90 gives 0.960, against 0.962 with no PCA. Speed was not at stake
+either, since the direct fit takes about fifteen seconds, once.
+
+The two t-SNE layouts are different pictures. An incident shares on average 43\% of its 20
+nearest neighbours between them, and those that move most carry rare indicators, which PCA
+discards first. Each has about a hundred clusters; of those of the staged layout, 46 stay
+whole in the direct one, 50 split and 4 dissolve. The staged layout is the tidier of the
+two, because PCA keeps the dominant directions, but of an incident's 20 true neighbours
+60\% sit in its cluster there and 75\% in the direct layout.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{layouts-compared.png}
+\caption{The two layouts, with the incidents against Russia in colour and the two groups
+of the first insight marked as they were found on the staged layout. The same incidents
+stay together in the direct layout, much closer to each other.}
+\label{fig:layouts}
+\end{figure*}
+
+The view therefore opens on the direct layout, and the staged one stays one press away.
+
 \section{Insights}\label{sec:insights}
 
-Five results, each reachable via a gesture, are documented, produced by one of the three analyses and reported with their corresponding $z$ value; $|z|\geq 2$ is our threshold for "more than noise," and values/figures below that threshold are marked as such. A script recalculates each number by calling the same endpoints used by the interface.  
+Five results, each reachable via a gesture, are documented, produced by one of the two analyses and reported with their corresponding $z$ value; $|z|\geq 2$ is our threshold for "more than noise," and values/figures below that threshold are marked as such. A script recalculates each number by calling the same endpoints used by the interface.  
 
 \subsection{Russia splits into two operational families}
 
-Selecting Russia (220 incidents as the target), the highlighted marks are concentrated in two dense regions of the projection. Selecting ("Lassoing") each region in turn yields a weighted intensity of 1.59 versus 3.26. Compared to the other Russian incidents, the first is defined by a single-day impact ($+73.5 pp$, $z=10.8$) with no data breach, the second by data exfiltration ($+65.9 pp$, $z=10.0$) and an offline conflict over territory and resources. Both are projected reliably (trustworthiness of 0.938 and 0.977).
+Selecting Russia (220 incidents as the target), the highlighted marks are concentrated in two dense regions of the projection. Lassoing each region in turn gives two groups of 36 and 65 incidents, with a mean weighted intensity of 1.61 versus 3.09. Compared to the other Russian incidents, the first is defined by a single-day impact ($+72.3$ pp, $z=10.5$) with no data breach, the second by data exfiltration ($+79.3$ pp, $z=11.5$) and by data theft with doxing ($+60.0$ pp, $z=9.3$).
 
-The two families are \emph{not} separated by the attacker: Ukrainian military intelligence and volunteer groups appear in both, and the percentage without a named initiating state is 38\% versus 40\%. The projection cut them by what the operation does and how deep it gets, which is the cut a defender needs and one no actor-based grouping would produce.
+The two families are \emph{not} separated by the attacker: Ukrainian military intelligence and volunteer groups appear in both, and the percentage without a named initiating state is 36\% versus 42\%. The projection cut them by what the operation does and how deep it gets, which is the cut a defender needs and one no actor-based grouping would produce.
+
+The finding does not depend on the layout: on the staged one the same two groups come out as 37 and 78 incidents, with intensities of 1.59 and 3.26 (Fig.~\ref{fig:layouts}). What depends on it is how far apart they look. Their silhouette is 0.83 on the staged layout, 0.44 on the direct one and 0.08 in the 127 columns: the groups are told apart by features, each with $z>9$, and the empty space between them is an effect of t-SNE, which amplifies separations.
 
 \subsection{A coding break masquerading as a trend}
 
@@ -303,19 +340,19 @@ carrying a coded score.}
 
 \section{Verification}
 
-Because two of the evaluated properties of this project are negative assertions (no analytic is initiated from a menu and no results exist before an interaction), we made them verifiable rather than asserted. Four suites are run on demand: a static audit of the sources (every store mutator called from exactly one view; the analytics endpoints respond 404 to GET and 422 to an empty selection), a static audit of the visual encodings (palettes measured against three simulated color vision deficits, scales diverging only on signed quantities, a key in each view, whether a legend strip or a labelled axis), and two runtime suites run from the browser console that replay interactions and verify what's on screen. They currently report 26/26, 48/48, 25/25, and 38/38.
+Because two of the evaluated properties of this project are negative assertions (no analytic is initiated from a menu and no results exist before an interaction), we made them verifiable rather than asserted. Four suites are run on demand: a static audit of the sources (every store mutator called from exactly one view; the analytics endpoints respond 404 to GET and 422 to an empty selection), a static audit of the visual encodings (palettes measured against three simulated color vision deficits, scales diverging only on signed quantities, a key in each view, whether a legend strip or a labelled axis), and two runtime suites run from the browser console that replay interactions and verify what's on screen. They currently report 21/21, 48/48, 24/24, and 38/38.
 
-The suites have repeatedly proven useful: they identified a simple click in the projection that reprojected a country selection, and a resize redraw implementation that directly reached the views instead of going through the shared store, reported as "8 calls found" versus the four allowed by the contract.  
+The suites have repeatedly proven useful: they identified a simple click in the projection that started a computation on a selection made on the map, and a resize redraw implementation that directly reached the views instead of going through the shared store, reported as "8 calls found" versus the four allowed by the contract.  
 
 \section{Limitations}
 
 The corpus records \emph{publicly reported} incidents, coded by humans; underreporting is invisible to the tool, and Section~\ref{sec:insights} shows how strongly coding practice can influence a result. Each contrast tests 123 indicators without correction for multiple comparisons, which is why our claims are based on $|z|>3$ and features that agree with each other. The panel also draws only the strongest one or two rows per dimension, between six and
 twelve of the 123 indicators; the rest are in the response and in the script's output
-rather than on screen. Initiators are not a map layer: the mirror image result was intended to be read through the contrast panel rather than viewed geographically. Finally, a block of three or more countries is compared to the rest of the world as a group, without a breakdown by member.
+rather than on screen. Initiators are not a map layer: the mirror image result was intended to be read through the contrast panel rather than viewed geographically. A block of three or more countries is compared to the rest of the world as a group, without a breakdown by member. Finally, the projection is a fixed picture: its layouts are computed offline, and a selection is answered by the other views rather than by a new projection.
 
 \section{Conclusion}
 
-Threat-Shape demonstrates that a curated incident corpus addresses questions its official dashboard doesn't. By making the projection of incident profiles the organizational view and associating three statistics with actions taken on it, the tool answers the question of what a national threat profile is \emph{made of}, rather than its extent. The findings in Section~\ref{sec:insights}, two operational families behind a country's incident count, an attribution scheme that inverts the intuitive explanation, and a coding discontinuity that any reading based solely on the count would have mistaken for a trend, prove that this distinction is important.
+Threat-Shape demonstrates that a curated incident corpus addresses questions its official dashboard doesn't. By making the projection of incident profiles the organizational view and associating two statistics with actions taken on it, the tool answers the question of what a national threat profile is \emph{made of}, rather than its extent. The findings in Section~\ref{sec:insights}, two operational families behind a country's incident count, an attribution scheme that inverts the intuitive explanation, and a coding discontinuity that any reading based solely on the count would have mistaken for a trend, prove that this distinction is important.
 
 \begin{thebibliography}{99}
 

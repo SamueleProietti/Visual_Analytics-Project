@@ -63,6 +63,10 @@ class Incident(BaseModel):
         description="Exploded incident_type atoms; an incident can carry several")
     x: float
     y: float
+    x_direct: float = Field(
+        description="Second layout: t-SNE fitted on the 127 standardised columns, with "
+                    "no PCA stage. View B's mode switch chooses which pair it draws")
+    y_direct: float
 
 
 class TimelinePoint(BaseModel):
@@ -156,25 +160,6 @@ class ProjectedPoint(BaseModel):
     incident_id: int
     x: float
     y: float
-
-
-class ReprojectResponse(BaseModel):
-    """Payload of POST /api/reproject - the local re-projection.
-
-    `ok` false is a real answer, not an error: below the minimum subset size the
-    refusal IS the result, because an embedding of a dozen points looks exactly as
-    confident as one of a thousand and the analyst cannot tell them apart by eye.
-    """
-
-    ok: bool
-    reason: str = ""
-    n: int
-    minimum: int
-    perplexity: float | None = None
-    trustworthiness: float | None = Field(
-        default=None,
-        description="How much of each point's real neighbourhood survived the projection")
-    points: list[ProjectedPoint] = Field(default_factory=list)
 
 
 class ContrastFeature(BaseModel):

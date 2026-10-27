@@ -2,15 +2,18 @@
 Recompute every figure quoted in docs/insights.md.
 
 An insight that cannot be recomputed is an anecdote.
-This script calls the SAME endpoints the interface calls - /api/contrast, /api/reproject,
-/api/countries - so the numbers in the document are the numbers the tool shows, not a
-parallel analysis written in pandas that happens to agree.
+This script calls the SAME endpoints the interface calls - /api/contrast, /api/countries -
+so the numbers in the document are the numbers the tool shows, not a parallel analysis
+written in pandas that happens to agree.
 
 The one thing it does differently is how a selection is MADE. In the interface a cluster
 is enclosed with a lasso, which is a gesture and cannot be replayed exactly. Here the
-same two clusters are recovered with DBSCAN over the published t-SNE coordinates, which
-is deterministic: eps=5, min_samples=10 returns 78 and 37 incidents, the two dense groups
-an analyst encloses by hand.
+same clusters are recovered with DBSCAN over the published t-SNE coordinates, which is
+deterministic. On the layout the view opens with, t-SNE fitted on the 127 columns,
+eps=6, min_samples=10 returns 65 and 36 incidents, the two dense groups an analyst
+encloses by hand, and two small ones of 11 and 10. scripts/10_compare_layouts.py repeats
+the search on the staged layout (PCA 20 then t-SNE), where the same two groups come out
+as 78 and 37.
 
 Run with the server up:
     .venv/Scripts/python -m uvicorn backend.app.main:app        # in another terminal
@@ -18,6 +21,7 @@ Run with the server up:
 """
 
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
@@ -26,7 +30,7 @@ from collections import Counter
 import numpy as np
 from sklearn.cluster import DBSCAN
 
-BASE = "http://127.0.0.1:8000"
+BASE = os.environ.get("THREAT_SHAPE_BASE", "http://127.0.0.1:8000")
 LINE = "=" * 86
 
 
@@ -82,13 +86,15 @@ def insight_1_russia(incidents):
     russia = [d for d in incidents if "RU" in (d["countries"] or [])]
     print(f"  Russia as receiver: {len(russia)} incidents")
 
-    coords = np.array([[d["x"], d["y"]] for d in russia])
-    labels = DBSCAN(eps=5.0, min_samples=10).fit_predict(coords)
+    # The direct layout, the one View B opens with. eps=6 is the eps=5 this search used on
+    # the staged layout, rescaled by the spacing of the points (see script 10).
+    coords = np.array([[d["x_direct"], d["y_direct"]] for d in russia])
+    labels = DBSCAN(eps=6.0, min_samples=10).fit_predict(coords)
     groups = {}
     for label, incident in zip(labels, russia):
         groups.setdefault(int(label), []).append(incident)
     sizes = {k: len(v) for k, v in groups.items() if k != -1}
-    print(f"  DBSCAN(eps=5, min_samples=10) clusters: {sizes}")
+    print(f"  DBSCAN(eps=6, min_samples=10) clusters: {sizes}")
 
     for label, members in sorted(groups.items(), key=lambda kv: -len(kv[1])):
         if label == -1:
@@ -103,11 +109,6 @@ def insight_1_russia(incidents):
         print("    types:", Counter(t for d in members for t in d["types"]).most_common(4))
         show(top(contrast([d["incident_id"] for d in members],
                           [d["incident_id"] for d in others])))
-        projection = post("/api/reproject",
-                          {"incident_ids": [d["incident_id"] for d in members]})
-        print(f"    local re-projection: n={projection['n']}, "
-              f"perplexity {projection['perplexity']}, "
-              f"trustworthiness {projection['trustworthiness']:.3f}")
 
 
 def insight_2_coverage(incidents):

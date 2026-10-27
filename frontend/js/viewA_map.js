@@ -285,7 +285,7 @@ const ViewA = (() => {
    *
    * A DISPLAY control, not an analytic trigger. Zooming changes which part of the map
    * you are looking at and nothing else: it does not touch the selection store, so no
-   * residual, re-projection or contrast can be started by pressing it. That is what
+   * residual or contrast can be started by pressing it. That is what
    * keeps it compatible with the course rules - the forbidden thing is a control that
    * STARTS an analysis, not a control that moves the camera.
    */

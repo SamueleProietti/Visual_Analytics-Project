@@ -79,9 +79,8 @@ const SelectionStore = (() => {
   // A mutation that leaves the state as it was publishes NOTHING. A notification wakes
   // every subscriber, and a subscriber cannot tell "the selection changed" from "someone
   // said the same thing again": a plain click on the timeline, which clears a brush that
-  // did not exist, made View D refetch and flash its contrast, and made View B drop a
-  // local re-projection because the (non-)change came from another view. Guarding here,
-  // once, stops every such echo instead of patching each gesture that can produce one.
+  // did not exist, made View D refetch and flash its contrast. Guarding here, once, stops
+  // every such echo instead of patching each gesture that can produce one.
 
   const sameList = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
   const sameSet = (a, b) => (a === null || b === null ? a === b

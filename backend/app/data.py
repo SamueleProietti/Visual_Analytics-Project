@@ -23,6 +23,7 @@ REQUIRED = [
     "contingency_country_sector.csv.gz",
     "country_codes.csv",
     "tsne_global.csv.gz",
+    "tsne_direct.csv.gz",
     "initiator_counts.csv",
 ]
 
@@ -50,6 +51,13 @@ def incidents():
     meta = _read("incidents_meta.csv.gz")
     tsne = _read("tsne_global.csv.gz")
     frame = meta.merge(tsne, on="incident_id", how="left")
+
+    # The second layout, t-SNE straight from the 127 standardised columns. Both are sent
+    # in the same payload because View B's mode switch has to be instant: it is a display
+    # control, so it must not start a computation or even a round trip.
+    direct = _read("tsne_direct.csv.gz").rename(
+        columns={"x": "x_direct", "y": "y_direct"})
+    frame = frame.merge(direct, on="incident_id", how="left")
 
     # Which countries each incident targeted, so a map click can resolve to a set of
     # incidents on the client without a round trip. 249 incidents are located only on
@@ -92,12 +100,6 @@ def incidents():
 @lru_cache(maxsize=1)
 def feature_matrix():
     return _read("features_matrix.csv.gz")
-
-
-@lru_cache(maxsize=1)
-def pca_components():
-    """The 20 PCA components - the input the local re-projection refits t-SNE on."""
-    return _read("pca_components.csv.gz")
 
 
 @lru_cache(maxsize=1)

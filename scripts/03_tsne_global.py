@@ -1,10 +1,9 @@
 """
 Global t-SNE embedding (offline).
 
-Projects the 20 PCA components to the 2D layout View B draws. This is the technique the
-proposal puts inside the interactive analysis flow: the global embedding is precomputed
-here, and the local re-projection re-fits t-SNE on whatever subset the analyst
-lassoes.
+Projects the 20 PCA components to the 2D layout View B draws. The embedding is computed
+once, offline; scripts/08_tsne_direct.py builds the second layout the view can switch to,
+fitted on the 127 columns with no PCA stage.
 
 Perplexity is chosen, not assumed: three candidates are fitted and compared on
 trustworthiness, which measures how much of each point's local neighbourhood survives

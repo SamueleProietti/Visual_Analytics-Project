@@ -21,6 +21,7 @@ Run (with the server up for the API section):
 """
 
 import json
+import os
 import re
 import urllib.error
 import urllib.request
@@ -29,9 +30,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 JS = ROOT / "frontend" / "js"
 HTML = ROOT / "frontend" / "index.html"
-BASE = "http://127.0.0.1:8000"
+# The running server to interrogate. Overridable because the audit is often run against a
+# second instance on another port while the one being used stays up.
+BASE = os.environ.get("THREAT_SHAPE_BASE", "http://127.0.0.1:8000")
 
-ANALYTICS_ENDPOINTS = ["/api/residuals", "/api/reproject", "/api/contrast"]
+ANALYTICS_ENDPOINTS = ["/api/residuals", "/api/contrast"]
 
 # The only three functions that may write to the shared store, and the only file each
 # is allowed to be called from. Anything else writing to the store would be a fourth
@@ -75,8 +78,14 @@ CONTROL = re.compile(r'(?:join|append)\("(?:button|select|input)"\)'
 # Starting a computation, or writing the selection the computations run on. Reading the
 # store (getState) is not either of those, so it is deliberately absent.
 ANALYTIC = re.compile(r"SelectionStore\.(?:set\w+|clear)\s*\("
-                      r"|/api/(?:residuals|reproject|contrast)"
-                      r"|loadResiduals\(|loadSectors\(|loadContrast\(|reproject\(")
+                      r"|/api/(?:residuals|contrast)"
+                      r"|loadResiduals\(|loadSectors\(|loadContrast\(")
+
+
+# The same inventory as ANALYTIC minus the store writers: used where writing the
+# selection is the point of the code being read, as in the lasso.
+ANALYTIC_CALL = re.compile(r"/api/(?:residuals|contrast)"
+                           r"|loadResiduals\(|loadSectors\(|loadContrast\(")
 
 
 def handler_of(text, site):
@@ -131,22 +140,23 @@ def check_controls():
           "static controls found in index.html" if CONTROL.search(html) else "")
 
     makers = {name for name, _ in sites if name != HTML.name}
-    check("controls are built by View A alone", makers == {"viewA_map.js"},
+    check("controls are built only by the views that own them",
+          makers == {"viewA_map.js", "viewB_scatter.js"},
           f"files creating controls: {sorted(makers)}")
 
     # The inventory is asserted, not just printed. A control that appears without anyone
     # noticing is how a menu would eventually become the way an analysis starts - the
     # same reason the exemption list below is audited rather than trusted.
-    view_a = sources["viewA_map.js"]
     classes = set()
     for name, site in sites:
-        if name != "viewA_map.js":
+        if name == HTML.name:
             continue
-        window = view_a[site:site + 400]
+        window = sources[name][site:site + 400]
         found = re.search(r'\.attr\("class",\s*(?:\(\w+\)\s*=>\s*)?"([a-z-]+)"', window)
         if found:
             classes.add(found.group(1))
-    check("the display controls are the layer toggle and the zoom buttons, and nothing else",
+    check("the display controls are the two layout toggles and the zoom buttons, "
+          "and nothing else",
           classes == {"toggle-button", "zoom-button"},
           f"control classes found: {sorted(classes)}")
 
@@ -213,19 +223,6 @@ def check_analytics_reachability():
     check("all five views react through the store subscription", len(calls) == 5,
           f"{len(calls)} calls found")
 
-    # Two conditions, both required. The origin alone once let a plain click in View B
-    # (which publishes setLasso(null) from "projection") refit a COUNTRY selection.
-    # The condition of the `if` that guards the call: from the last "if (" before
-    # ViewB.reproject( up to the brace that opens its body. Not a [^)]* regex - the
-    # condition itself contains a call, getState(), and would stop it early.
-    call = main.find("ViewB.reproject(")
-    opening = main.rfind("if (", 0, call)
-    gate_text = main[opening:main.find("{", opening)] if call > 0 and opening >= 0 else ""
-    check("re-projection is gated on the lasso origin",
-          'origin === "projection"' in gate_text, gate_text)
-    check("re-projection also requires a lasso to exist, not just a projection event",
-          ".lasso" in gate_text, gate_text)
-
     # republish() exists for the redraw after a window resize: it re-sends the current
     # selection so the rebuilt views get it back. It is safe only as long as it sets
     # nothing - otherwise it would be a way to produce a selection no interaction made.
@@ -236,19 +233,19 @@ def check_analytics_reachability():
           "notify(" in body and "state" not in body,
           " ".join(body.split()))
 
-    # The local layout belongs to the lasso that produced it. Dismissing the lasso has
-    # to dismiss the layout, and the test cannot be on the ORIGIN alone: the dismissing
-    # click publishes from "projection" itself, which is how View B once kept a local
-    # re-projection on screen after every other view had dropped the lasso.
+    # The lasso publishes a selection and nothing else. It is the one gesture that could
+    # plausibly grow a computation of its own again, so the body of the handler is read
+    # rather than trusted: the only thing it may reach is the store.
     scatter = (JS / "viewB_scatter.js").read_text(encoding="utf-8")
-    guard = scatter[scatter.find("function applySelection"):]
-    guard = guard[:guard.find("restoreGlobal();") + len("restoreGlobal();")]
-    check("View B drops the local layout when the lasso is gone",
-          "getState().lasso" in guard and "restoreGlobal();" in guard)
+    handler = scatter[scatter.find('d3.select(window).on("mouseup.viewB"'):]
+    handler = handler[:handler.find("\n    });")]
+    check("the lasso only writes the selection",
+          "SelectionStore.setLasso(" in handler and not ANALYTIC_CALL.search(handler),
+          " ".join(handler.split())[:90])
 
     # No analytic may be invoked at startup: bootstrap must not call them directly.
     bootstrap = main[main.find("async function bootstrap"):]
-    for name in ("reproject(", "/api/residuals", "/api/contrast"):
+    for name in ("/api/residuals", "/api/contrast"):
         check(f"bootstrap does not invoke {name.rstrip('(')} directly",
               name not in bootstrap.split("SelectionStore.subscribe")[0])
 

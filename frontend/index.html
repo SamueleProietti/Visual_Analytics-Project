@@ -6,8 +6,8 @@
   <title>Threat-Shape</title>
   <!-- ?v= is bumped when an asset changes, so a browser holding an old copy is
        forced to refetch instead of silently running stale code. -->
-  <link rel="stylesheet" href="css/style.css?v=77">
-  <link rel="icon" href="favicon.svg?v=1">
+  <link rel="stylesheet" href="css/style.css?v=90">
+  <link rel="icon" href="favicon.svg?v=89">
 </head>
 <body>
 
@@ -52,7 +52,10 @@
       <div class="view-head">
         <!-- The "no units" caveat is in the tooltip: t-SNE axes carry no metric and
              inter-cluster distances are not meaningful. -->
-        <h2 title="drag to lasso · click empty space to clear · axes have no units, distances between clusters are not meaningful">t-SNE projection</h2>
+        <h2 title="drag to lasso · click empty space to clear · + and − to zoom, shift-drag to move · axes have no units, distances between clusters are not meaningful">t-SNE projection</h2>
+        <!-- Two-state display switch, like View A's. It swaps which precomputed layout is
+             drawn and starts nothing: both embeddings travel in the same payload. -->
+        <span class="view-head-extra toggle" id="view-b-toggle"></span>
       </div>
       <div class="view-canvas" id="view-b-canvas">
         <span class="placeholder">loading projection…</span>
@@ -63,7 +66,7 @@
 
     <section class="view view--d" id="view-d">
       <div class="view-head">
-        <h2 title="bar length = difference in percentage points · order = |z|, i.e. reliability · faded, dashed bars fail the validity test">Contrast Panel</h2>
+        <h2 title="six fixed indicators · segment length = difference in percentage points · faded, dashed rows fail the validity test">Contrast Panel</h2>
         <!-- The comparison target is always stated. -->
         <span class="view-head-extra panel-header is-muted" id="view-d-header">no selection</span>
       </div>
@@ -100,16 +103,16 @@
   </div><!-- /.app-shell -->
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
-  <script src="js/selectionStore.js?v=77"></script>
-  <script src="js/tooltip.js?v=77"></script>
-  <script src="js/viewA_map.js?v=77"></script>
-  <script src="js/viewB_scatter.js?v=77"></script>
-  <script src="js/viewC_timeline.js?v=77"></script>
-  <script src="js/viewD_contrast.js?v=77"></script>
-  <script src="js/viewE_impact.js?v=77"></script>
-  <script src="js/main.js?v=77"></script>
+  <script src="js/selectionStore.js?v=89"></script>
+  <script src="js/tooltip.js?v=89"></script>
+  <script src="js/viewA_map.js?v=89"></script>
+  <script src="js/viewB_scatter.js?v=89"></script>
+  <script src="js/viewC_timeline.js?v=89"></script>
+  <script src="js/viewD_contrast.js?v=91"></script>
+  <script src="js/viewE_impact.js?v=89"></script>
+  <script src="js/main.js?v=89"></script>
   <!-- Verification tool, not application code. Kept separate so the trigger
        audit can prove that only three things write to the selection store. -->
-  <script src="js/verify.js?v=77"></script>
+  <script src="js/verify.js?v=89"></script>
 </body>
 </html>

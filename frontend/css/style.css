@@ -309,6 +309,10 @@ body {
   color: #fff;
 }
 
+/* A state the data cannot support right now: greyed and inert, with the reason in the
+   title. View B disables its second layout when the payload does not carry one. */
+.toggle-button:disabled { opacity: 0.4; cursor: default; }
+
 #view-a-canvas { display: block; }          /* svg fills it; no flex centring */
 
 #view-a-canvas > svg { border-radius: 4px; }
@@ -354,6 +358,11 @@ path.country:hover { fill-opacity: 0.75; }
 
 /* Disabled at the limits rather than hidden: greyed out reads as "you are at the end". */
 .map-zoom button:disabled { opacity: 0.4; cursor: default; }
+
+/* The same control floats over View B's projection. There the marks sit under a zoom
+   transform, and their outlines must not thicken with it: the stroke is what separates
+   two overlapping points, and at 12x it would otherwise swallow them. */
+.points-layer .point { vector-effect: non-scaling-stroke; }
 
 /* Details on demand: a FIXED box in the bottom-left corner, over the South Pacific.
    Fixed width and height, so it covers the same stretch of open ocean whatever is
@@ -436,7 +445,8 @@ circle.point:hover {
 
 path.band { fill-opacity: 0.9; }
 
-/* Axes are drawn here, unlike View B, because years and counts are real quantities. */
+/* Axes are drawn here because years and counts are real quantities. View B draws
+   none: a t-SNE coordinate is not a quantity at all. */
 .axis text { font-size: 9.5px; fill: var(--ink-soft); }
 .axis path, .axis line { stroke: #c9ccd6; }
 .grid line { stroke: #eceef3; }
@@ -462,10 +472,25 @@ path.band { fill-opacity: 0.9; }
 .dumbbell { stroke-width: 3; stroke-linecap: round; }
 .dumbbell.is-unreliable-link { stroke-dasharray: 3 2; }
 .dot-comparison { stroke-width: 1.4; }
-.row-hit { fill: transparent; }        /* hover target: the dumbbell and its dots */
+.row-hit { fill: transparent; }        /* hover target, View E's bars */
 
 /* Table rules between rows: faint enough to separate without competing with the data. */
 .row-rule { stroke: #e7e9f0; stroke-width: 1; }
+
+/* The one rule between two questions, a step firmer than the row rules. */
+.group-rule { stroke: #c3c7d4; stroke-width: 1; }
+
+/* Every hairline of the panel on the pixel grid. Antialiased, a rule that lands
+   between two pixels is drawn wider and paler than one that lands on a pixel, and the
+   table looks ruled by two different pens. */
+#view-d-canvas .row-rule,
+#view-d-canvas .group-rule,
+#view-d-canvas .axis path,
+#view-d-canvas .axis line { shape-rendering: crispEdges; }
+
+/* The incident counts beside the axis, and the warning that a group is small. */
+.rows-note { font-size: 9px; font-style: italic; fill: var(--ink-soft); }
+.few-note { fill: var(--pending); font-weight: 600; font-style: normal; }
 
 /* The dimension a group of rows answers: who attacks, what kind of attack, and so on.
    Lighter and smaller than the row labels - it is a signpost, not a finding. */
@@ -477,8 +502,15 @@ path.band { fill-opacity: 0.9; }
 }
 
 .bar-label { font-size: 10px; fill: var(--ink); }
-.z-value   { font-size: 9px;  fill: var(--ink-soft); }
-.z-value .pp-value { fill: var(--ink); font-weight: 600; }
+
+/* The two rates sit beside their own dots, so the quantity the row is about is read at
+   the mark instead of at the edge of the panel. Ink for the selection, grey for the
+   comparison: the sign is already in the dot and the segment. */
+.rate-value { font-size: 9px; fill: var(--ink-soft); }
+.rate-value.rate-selection { fill: var(--ink); }
+
+/* The difference, above the segment that already encodes it. */
+.pp-value { font-size: 9px; font-weight: 600; fill: var(--ink); }
 
 /* Fabricated demo data must be unmistakable. */
 .demo-stamp {
@@ -519,25 +551,6 @@ path.country.is-unreliable { stroke-dasharray: 2 2; }
 .legend-swatch.is-unreliable-swatch {
   background: repeating-linear-gradient(45deg, #ffffff 0 3px, #9a9a9a 3px 4px);
 }
-
-/* ---------- local re-projection ---------- */
-
-/* The banner must be impossible to miss: a local layout and the global one look alike,
-   but their axes mean different things. */
-.banner-bg.is-local { fill: #6a51a3; fill-opacity: 0.92; }
-.banner-bg.is-busy  { fill: #b26a00; fill-opacity: 0.92; }
-.banner-bg.is-warn  { fill: #b26a00; fill-opacity: 0.92; }
-.banner-bg.is-error { fill: #c62828; fill-opacity: 0.92; }
-
-.banner-text {
-  fill: #ffffff;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  pointer-events: none;
-}
-
-
 
 /* View A: the off-scale swatches sit level with the ramp's bar, not its labels. */
 .legend-row--ramp { align-items: flex-start; column-gap: 8px; flex-wrap: nowrap; }

@@ -1,8 +1,9 @@
 /* View B — t-SNE projection, one point per incident.
  *
  * Draws the 3,414 precomputed positions with the colour and size the proposal
- * specifies. The lasso triggers the local re-projection, and the view is coordinated
- * with the other three through the shared selection.
+ * specifies. The lasso selects the incidents it encloses, and the view is coordinated
+ * with the other four through the shared selection. It computes nothing: both layouts
+ * are built offline, and the gesture publishes a selection, nothing more.
  *
  * The axes are deliberately unlabelled and undrawn. t-SNE coordinates carry no units,
  * and inter-cluster distances are not meaningful, so any tick or axis
@@ -16,7 +17,7 @@ const ViewB = (() => {
   // midpoint or sign.
   //
   // ColorBrewer Greens, not Purples. Purple was doing two jobs at once - it was this
-  // ramp AND the colour of a selection (the lasso outline, the local-projection banner).
+  // ramp AND the colour of a selection (the lasso outline).
   // A point could be dark because it was intense or because it was picked, which is the
   // one distinction this view exists to support. Moving intensity to green leaves purple
   // to mean "chosen by the analyst" and nothing else.
@@ -26,7 +27,53 @@ const ViewB = (() => {
   const R_MAX = 8.0;
 
   let state = { svg: null, points: null, colour: null, radius: null, maxLog: 1,
-                x: null, y: null, lassoPath: null, drawing: false, vertices: [] };
+                x: null, y: null, lassoPath: null, drawing: false, vertices: [],
+                // The last snapshot this view was handed. The mode switch rebuilds the
+                // plot and re-applies it from here rather than asking the store to
+                // republish: a display control must not write to the store at all.
+                snapshot: null,
+                // Camera. `layer` is the group the zoom transform is applied to, and
+                // `transform` the current one: the lasso needs it to test points where
+                // they are drawn rather than where they were laid out.
+                layer: null, zoom: null, transform: null };
+
+  // Zoom limits, the same pair of buttons as the map. 1 is the whole projection fitted
+  // to the card; 12 is enough to pull apart the densest clusters, where a few hundred
+  // incidents sit within a few pixels of each other.
+  const ZOOM_LIMITS = [1, 12];
+  const ZOOM_STEP = 1.6;
+
+  /* Which global layout is on screen.
+   *
+   *   "direct" t-SNE straight from the 127 standardised columns, no PCA stage
+   *   "pca"    127 columns -> PCA 20 -> t-SNE 2D
+   *
+   * Both are precomputed and travel in the same payload, so switching costs a redraw
+   * and no round trip. Measured against the original 127-column space, at k=20, their
+   * trustworthiness is 0.9616 and 0.9163.
+   *
+   * The view opens on the direct layout because it is the more faithful of the two. The
+   * staged one stays one press away, as the thing the direct layout is compared with:
+   * scripts/10_compare_layouts.py measures that half the clusters differ between the
+   * two, and that the staged layout draws the two groups of insight 1 about twice as far
+   * apart as the direct one does.
+   */
+  let mode = "direct";
+
+  /** The pair of coordinates the active mode reads.
+   *
+   * Falls back to the first layout when the payload carries no alternative, which happens
+   * against a backend started before those artifacts existed. Without the fallback every
+   * point would be positioned at NaN and the view would simply go blank - a silent
+   * failure that looks like a bug in the projection rather than a stale server.
+   */
+  const coords = (p) => {
+    if (mode === "direct" && p.x_direct != null) return [p.x_direct, p.y_direct];
+    return [p.x, p.y];
+  };
+
+  /** Whether the payload actually contains the direct layout. */
+  const has = () => corpus.length > 0 && corpus[0].x_direct != null;
 
   /* Ray casting: count how many times a ray from the point crosses the polygon edges.
    * Odd means inside. Written out rather than pulled from a library because d3 has no
@@ -128,15 +175,14 @@ const ViewB = (() => {
    * margin, centred. orient() below first rotates the cloud - which distorts nothing -
    * so that the cap is reached as rarely as possible.
    *
-   * @param {number} topPad extra room at the top, for the local-projection banner
    */
   const MAX_STRETCH = 2.0;
   const PAD = R_MAX + 2;
 
   /** The two axis factors fitScales() would use, and the canvas area they fill. */
-  function fitFactors(spanX, spanY, width, height, topPad) {
+  function fitFactors(spanX, spanY, width, height) {
     let kx = (width - 2 * PAD) / (spanX || 1);
-    let ky = (height - 2 * PAD - topPad) / (spanY || 1);
+    let ky = (height - 2 * PAD) / (spanY || 1);
     if (kx > ky * MAX_STRETCH) kx = ky * MAX_STRETCH;
     if (ky > kx * MAX_STRETCH) ky = kx * MAX_STRETCH;
     return { kx, ky, filled: kx * spanX * ky * spanY };
@@ -152,9 +198,9 @@ const ViewB = (() => {
    * angle is searched in 5-degree steps and the one that fills the most canvas area,
    * under the same stretch cap, wins.
    */
-  function orient(points, width, height, topPad = 0) {
-    const cx = d3.mean(points, (p) => p.x);
-    const cy = d3.mean(points, (p) => p.y);
+  function orient(points, width, height, get = (p) => [p.x, p.y]) {
+    const cx = d3.mean(points, (p) => get(p)[0]);
+    const cy = d3.mean(points, (p) => get(p)[1]);
     let best = { angle: 0, filled: -1 };
     for (let deg = 0; deg < 180; deg += 5) {
       const a = (deg * Math.PI) / 180;
@@ -162,32 +208,34 @@ const ViewB = (() => {
       const sin = Math.sin(a);
       let u0 = Infinity; let u1 = -Infinity; let v0 = Infinity; let v1 = -Infinity;
       for (const p of points) {
-        const u = (p.x - cx) * cos - (p.y - cy) * sin;
-        const v = (p.x - cx) * sin + (p.y - cy) * cos;
+        const [px, py] = get(p);
+        const u = (px - cx) * cos - (py - cy) * sin;
+        const v = (px - cx) * sin + (py - cy) * cos;
         if (u < u0) u0 = u; if (u > u1) u1 = u;
         if (v < v0) v0 = v; if (v > v1) v1 = v;
       }
-      const { filled } = fitFactors(u1 - u0, v1 - v0, width, height, topPad);
+      const { filled } = fitFactors(u1 - u0, v1 - v0, width, height);
       if (filled > best.filled) best = { angle: a, filled };
     }
     const cos = Math.cos(best.angle);
     const sin = Math.sin(best.angle);
     for (const p of points) {
-      p.u = (p.x - cx) * cos - (p.y - cy) * sin;
-      p.v = (p.x - cx) * sin + (p.y - cy) * cos;
+      const [px, py] = get(p);
+      p.u = (px - cx) * cos - (py - cy) * sin;
+      p.v = (px - cx) * sin + (py - cy) * cos;
     }
     return points;
   }
 
-  function fitScales(xs, ys, width, height, topPad = 0) {
+  function fitScales(xs, ys, width, height) {
     const [x0, x1] = d3.extent(xs);
     const [y0, y1] = d3.extent(ys);
     const spanX = (x1 - x0) || 1;
     const spanY = (y1 - y0) || 1;
-    const { kx, ky } = fitFactors(spanX, spanY, width, height, topPad);
+    const { kx, ky } = fitFactors(spanX, spanY, width, height);
 
     const left = (width - kx * spanX) / 2;
-    const top = topPad + (height - topPad - ky * spanY) / 2;
+    const top = (height - ky * spanY) / 2;
 
     return {
       x: d3.scaleLinear().domain([x0, x1]).range([left, left + kx * spanX]),
@@ -196,27 +244,79 @@ const ViewB = (() => {
     };
   }
 
-  // Whether a local re-projection is currently on screen.
-  // Declared before init() because init() resets it.
-  let local = { active: false, banner: null };
+  // Kept so the mode switch can rebuild the plot without asking main.js for the data
+  // again. Set once, in init().
+  let corpus = [];
+
+  /** Two-state display switch, the same form as View A's layer toggle.
+   *
+   * It swaps which precomputed layout is drawn. It starts no computation, writes nothing
+   * to the selection store, and needs no round trip, because both embeddings arrive in
+   * the same payload.
+   */
+  function buildModeToggle() {
+    const host = d3.select("#view-b-toggle");
+    host.selectAll("*").remove();
+    const stale = "this payload has no such layout - restart the backend";
+    host.selectAll("button")
+      // The reference layout comes first: it is the state the view opens in.
+      .data([["direct", "t-SNE only", "t-SNE fitted on all 127 standardised columns, no "
+              + "PCA stage. Trustworthiness 0.962"],
+             ["pca", "PCA + t-SNE", "127 columns reduced to 20 principal components, "
+              + "then t-SNE. Trustworthiness 0.916"]])
+      .join("button")
+      .attr("type", "button")
+      .attr("class", (d) => "toggle-button" + (d[0] === mode ? " is-active" : ""))
+      // Disabled rather than hidden when the payload has no such layout: a button that
+      // vanishes looks like a bug in the interface, one that refuses and says why points
+      // at the stale backend that actually caused it.
+      .property("disabled", (d) => d[0] !== "pca" && !has())
+      .attr("title", (d) => (d[0] === "pca" || has() ? d[2] : stale))
+      .text((d) => d[1])
+      .on("click", (event, d) => setMode(d[0]));
+  }
+
+  /** Redraw in the other space.
+   *
+   * The selection survives: the points are the same incidents, drawn from the other
+   * embedding. Only their positions change, so a lasso drawn afterwards encloses what it
+   * looks like it encloses.
+   */
+  const LAYOUT_NAME = {
+    pca: "PCA 20 then t-SNE",
+    direct: "t-SNE on 127 columns",
+  };
+
+  function setMode(next) {
+    if (next === mode || !corpus.length) return;
+    if (next !== "pca" && !has()) {
+      console.warn(`[view B] the payload has no ${LAYOUT_NAME[next]} layout. Restart the `
+        + "backend so /api/incidents serves it, then reload.");
+      return;
+    }
+    mode = next;
+    init(corpus);
+    if (state.snapshot) applySelection(state.snapshot, "mode");
+    console.info(`[view B] layout: ${LAYOUT_NAME[mode]}`);
+  }
 
   function init(incidents) {
     const host = d3.select("#view-b-canvas");
     host.html("");
-    // The svg that carried a local layout is gone, so the flag that says one is on
-    // screen has to go with it. Without this a redraw would leave the view claiming a
-    // re-projection it had just thrown away, and refuse the next lasso.
-    local.active = false;
-
+    corpus = incidents;
+    // Against a backend that predates the alternative layouts, fall back to the one
+    // every payload carries, so the active button and the picture cannot disagree.
+    if (mode !== "pca" && !has()) mode = "pca";
     const width = host.node().clientWidth;
     const height = host.node().clientHeight;
 
     state.maxLog = Math.max(...incidents.map(
       (d) => Math.log1p(Math.max(0, d.affected_entities_value ?? 0))));
 
-    // u, v: the embedding rotated to fit this canvas (see orient). The raw x, y are
-    // left untouched on the shared incident objects.
-    orient(incidents, width, height);
+    // u, v: the active layout, placed on this canvas. It is rotated first, which costs
+    // nothing because the orientation of a t-SNE layout is arbitrary, and then stretched
+    // up to 2x to use the card.
+    orient(incidents, width, height, coords);
     const { x, y } = fitScales(incidents.map((d) => d.u), incidents.map((d) => d.v),
       width, height);
 
@@ -226,11 +326,14 @@ const ViewB = (() => {
       .attr("aria-label", "t-SNE projection of 3,414 cyber incidents");
     state.svg = svg;
 
+    state.layer = svg.append("g").attr("class", "points-layer");
+    state.transform = d3.zoomIdentity;
+
     // Draw the largest marks first so small points are not hidden underneath them.
     const ordered = [...incidents].sort(
       (a, b) => (b.affected_entities_value ?? 0) - (a.affected_entities_value ?? 0));
 
-    state.points = svg.append("g").selectAll("circle")
+    state.points = state.layer.selectAll("circle")
       .data(ordered).join("circle")
       .attr("class", "point")
       .attr("cx", (d) => x(d.u))
@@ -259,9 +362,11 @@ const ViewB = (() => {
     state.x = x;
     state.y = y;
     attachLasso(svg, ordered, width, height);
+    attachZoom(svg, host, width, height);
 
     renderLegend();
-    console.info(`[view B] ${incidents.length} points drawn`);
+    buildModeToggle();
+    console.info(`[view B] ${incidents.length} points drawn (${mode})`);
     return incidents.length;
   }
 
@@ -276,24 +381,19 @@ const ViewB = (() => {
       return [event.clientX - rect.left, event.clientY - rect.top];
     };
 
-    svg.on("mousedown", (event) => {
+    svg.on("mousedown.lasso", (event) => {
+      // Shift-drag belongs to the camera (see attachZoom). A plain drag is the lasso.
+      if (event.shiftKey) return;
       event.preventDefault();
       Tooltip.hide("view-b");
       state.drawing = true;
       state.vertices = [point(event)];
-      // No outline is drawn while a local layout is on screen: the gesture cannot
-      // produce a selection there (see mouseup), and drawing it would promise one.
-      if (!local.active) state.lassoPath.attr("d", "").classed("is-active", true);
+      state.lassoPath.attr("d", "").classed("is-active", true);
     });
 
-    svg.on("mousemove", (event) => {
+    svg.on("mousemove.lasso", (event) => {
       if (!state.drawing) return;
-      // Vertices are recorded even in the local layout, where no lasso will be drawn or
-      // acted on. They are what distinguishes a drag from a click at mouseup, and
-      // without them a drag would fall through to the click branch and clear the
-      // selection - doing something, when the point is to do nothing.
       state.vertices.push(point(event));
-      if (local.active) return;
       state.lassoPath.attr("d", "M" + state.vertices.map((p) => p.join(",")).join("L") + "Z");
     });
 
@@ -304,8 +404,7 @@ const ViewB = (() => {
       state.drawing = false;
       state.lassoPath.attr("d", "").classed("is-active", false);
 
-      // Fewer than three vertices is a click, not a lasso: treat it as "clear". This
-      // stays available in the local layout - it is the way back to the global one.
+      // Fewer than three vertices is a click, not a lasso: treat it as "clear".
       if (state.vertices.length < 3) {
         // Only a lasso can be cleared from here. With none active the click publishes
         // nothing at all: a notification that changes no state still wakes every
@@ -314,34 +413,82 @@ const ViewB = (() => {
         return;
       }
 
-      // No lassoing inside a local re-projection.
-      //
-      // The two layouts are different coordinate systems, and a lasso is a claim about
-      // position. While the local one is on screen the points it does not contain are
-      // hidden rather than dimmed, so an enclosure here could only ever mean "a
-      // sub-cluster of the sub-cluster" - a drill-down whose result would replace the
-      // very selection the analyst is reading, with no way back to it. Clearing returns
-      // to the global layout, where a new lasso means what it says.
-      if (local.active) {
-        console.info("[view B] lasso ignored: the local layout is on screen. "
-          + "Click empty space to return to the global one, then lasso again.");
-        return;
-      }
-      // Test against where each point is drawn NOW, not against its global coordinates.
-      // After a local re-projection the marks have moved, and using the global scales
-      // here would select whatever happens to sit at the old positions - points the
-      // analyst never enclosed.
+      // Tested where each point is drawn, which is what the analyst enclosed. The lasso
+      // is traced in screen coordinates and the points may be under a zoom, so each one
+      // is carried through the current transform first: at 4x, the stored position of a
+      // point and the place it appears on screen are far apart.
       const nodes = state.points.nodes();
       const hits = [];
+      const camera = state.transform || d3.zoomIdentity;
       for (const node of nodes) {
-        if (insidePolygon(+node.getAttribute("cx"), +node.getAttribute("cy"),
-                          state.vertices)) {
+        const [sx, sy] = camera.apply([+node.getAttribute("cx"), +node.getAttribute("cy")]);
+        if (insidePolygon(sx, sy, state.vertices)) {
           hits.push(d3.select(node).datum());
         }
       }
       SelectionStore.setLasso(new Set(hits.map((d) => d.incident_id)));
       console.info(`[view B] lasso selected ${hits.length} incidents`);
     });
+  }
+
+  /* ---------------------------------------------------------------- zoom control
+   *
+   * A DISPLAY control, like the map's: it moves the camera and touches nothing else, so
+   * no analytic can start from it. Two buttons to zoom, shift-drag to pan. The plain
+   * drag stays the lasso, which is the gesture this view exists for; the wheel is left
+   * to the page, as on the map.
+   *
+   * The zoom is semantic. The group is scaled, but each mark is given its radius divided
+   * by the scale, so the points keep their size on screen while the gaps between them
+   * open up. Scaling the marks with everything else would magnify the overlap along with
+   * the distances, which is the opposite of what zooming into a dense cluster is for.
+   */
+  function attachZoom(svg, host, width, height) {
+    state.zoom = d3.zoom()
+      .scaleExtent(ZOOM_LIMITS)
+      .translateExtent([[0, 0], [width, height]])
+      .filter((event) => event.type !== "wheel" && event.type !== "dblclick"
+        && event.shiftKey)
+      .on("zoom", (event) => {
+        const t = event.transform;
+        state.transform = t;
+        state.layer.attr("transform", t);
+        state.points.attr("r", (d) => radiusFor(d.affected_entities_value) / t.k);
+        updateZoomButtons();
+      });
+    svg.call(state.zoom);
+
+    const box = host.append("div").attr("class", "map-zoom").attr("id", "view-b-zoom");
+    box.selectAll("button").data(["in", "out"]).join("button")
+      .attr("type", "button")
+      .attr("class", "zoom-button")
+      .attr("aria-label", (d) => (d === "in" ? "zoom in" : "zoom out"))
+      .attr("title", (d) => (d === "in"
+        ? "zoom in · shift-drag to move around"
+        : "zoom out"))
+      .text((d) => (d === "in" ? "+" : "−"))
+      .on("click", (event, d) => zoomBy(d));
+    updateZoomButtons();
+  }
+
+  function updateZoomButtons() {
+    const k = state.transform ? state.transform.k : 1;
+    d3.select("#view-b-zoom").selectAll("button")
+      .property("disabled", (d) => (d === "in"
+        ? k >= ZOOM_LIMITS[1] - 1e-6 : k <= ZOOM_LIMITS[0] + 1e-6));
+  }
+
+  function zoomBy(direction) {
+    if (!state.svg || !state.zoom) return;
+    const factor = direction === "in" ? ZOOM_STEP : 1 / ZOOM_STEP;
+    const k = state.transform ? state.transform.k : 1;
+    // Back at 1 the pan is reset too, so zooming all the way out returns the view the
+    // analyst started from, as on the map.
+    if (k * factor <= ZOOM_LIMITS[0] + 1e-6) {
+      state.zoom.transform(state.svg, d3.zoomIdentity);
+      return;
+    }
+    state.zoom.scaleBy(state.svg, factor);
   }
 
   /**
@@ -353,23 +500,9 @@ const ViewB = (() => {
    */
   function applySelection(snapshot, origin) {
     if (!state.points) return;
-
-    // A local layout describes ONE lasso, so it may stay on screen only while THAT
-    // lasso is still the selection. Two ways it stops being so:
-    //
-    //   * the lasso is gone - the analyst clicked empty space to dismiss it. This is the
-    //     way back to the global layout, and it used to fail: the clearing click
-    //     publishes with origin "projection", which the old "came from another view"
-    //     test read as "this view's own doing, keep the layout", and with a country
-    //     still selected the snapshot was not empty either. The other three views
-    //     dropped the lasso while this one kept showing its re-projection.
-    //   * the selection changed elsewhere - a map click, a timeline brush - so the
-    //     layout no longer describes what is selected.
-    const lassoed = !!SelectionStore.getState().lasso;
-    if (local.active && (!lassoed || (origin && origin !== "projection"))) restoreGlobal();
+    state.snapshot = snapshot;
 
     if (snapshot.empty) {
-      restoreGlobal();
       state.points.attr("fill-opacity", 0.78).attr("stroke", "#ffffff")
         .attr("stroke-width", 0.35).classed("is-dimmed", false);
       return;
@@ -381,107 +514,5 @@ const ViewB = (() => {
       .attr("stroke-width", (d) => (snapshot.ids.has(d.incident_id) ? 0.7 : 0.2));
   }
 
-  // ---------------------------------------------------------------------------------
-  // Local re-projection
-  //
-  // The proposal names t-SNE as the technique integrated in the interactive flow, and
-  // this is where that happens: the layout is genuinely refitted on the selected subset,
-  // not filtered from the precomputed one. Structure the global embedding had to
-  // compress can re-emerge at local scale.
-
-  function setBanner(text, kind) {
-    if (!state.svg) return;
-    state.svg.selectAll("g.local-banner").remove();
-    if (!text) return;
-    const g = state.svg.append("g").attr("class", "local-banner");
-    g.append("rect").attr("x", 0).attr("y", 0)
-      .attr("width", state.svg.attr("width")).attr("height", 19)
-      .attr("class", "banner-bg is-" + kind);
-    g.append("text").attr("x", 6).attr("y", 13).attr("class", "banner-text")
-      .text(text);
-  }
-
-  /** Put every point back on its global coordinates, and back on screen. */
-  function restoreGlobal() {
-    if (!local.active) { setBanner(null); return; }
-    local.active = false;
-    state.points.attr("display", null);
-    state.points.transition().duration(400)
-      .attr("cx", (d) => state.x(d.u))
-      .attr("cy", (d) => state.y(d.v));
-    setBanner(null);
-  }
-
-  /**
-   * Refit the projection on the current selection.
-   *
-   * Called by the verification suite's explicit trigger rather than on every change: a
-   * refit costs two to three seconds, and firing it on each click of a ctrl-click
-   * sequence would make the interface feel broken.
-   */
-  async function reproject(snapshot) {
-    if (!state.points || snapshot.empty) return null;
-    setBanner("re-projecting " + snapshot.ids.size + " incidents…", "busy");
-
-    const response = await fetch("/api/reproject", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ incident_ids: [...snapshot.ids] }),
-    });
-    if (!response.ok) { setBanner("re-projection failed", "error"); return null; }
-    const result = await response.json();
-
-    // A refusal is a result. Showing an unstable layout of 12 points would look exactly
-    // as authoritative as a good one.
-    if (!result.ok) {
-      setBanner(result.reason + " — showing the global layout", "warn");
-      restoreGlobalKeepBanner();
-      return result;
-    }
-
-    const byId = new Map(result.points.map((p) => [p.incident_id, p]));
-    const w = +state.svg.attr("width");
-    const h = +state.svg.attr("height");
-    orient(result.points, w, h, 20);
-    const xs = result.points.map((p) => p.u);
-    const ys = result.points.map((p) => p.v);
-    // Same isotropic fit as the global layout. Using a different mapping here would make
-    // the two embeddings visually incomparable for a reason that has nothing to do with
-    // the data - 20px of top padding leaves room for the banner.
-    const { x: lx, y: ly } = fitScales(xs, ys, w, h, 20);
-
-    local.active = true;
-
-    // Everything outside the subset is HIDDEN, not dimmed.
-    //
-    // Context-behind-focus works in View C because context and focus share one pair of
-    // axes. Here they would not: a re-projected point sits in the local embedding, an
-    // unselected one in the global embedding, and drawing both on the same plane puts
-    // two coordinate systems in one picture. The faded points were not the same data in
-    // the background - they were a different map underneath, and a lasso drawn over the
-    // result caught both. Set directly rather than through the transition: whether a
-    // mark is on screen must not depend on an animation frame.
-    state.points.attr("display", (d) => (byId.has(d.incident_id) ? null : "none"));
-
-    state.points.transition().duration(600)
-      .attr("cx", (d) => (byId.has(d.incident_id) ? lx(byId.get(d.incident_id).u) : state.x(d.u)))
-      .attr("cy", (d) => (byId.has(d.incident_id) ? ly(byId.get(d.incident_id).v) : state.y(d.v)));
-
-    // The banner is not decoration: an analyst must never mistake a local layout for
-    // the global one, because the axes mean something different in each.
-    setBanner(`LOCAL re-projection · n=${result.n} · perplexity ${result.perplexity}`
-      + ` · trustworthiness ${result.trustworthiness.toFixed(3)}`, "local");
-    return result;
-  }
-
-  function restoreGlobalKeepBanner() {
-    if (!local.active) return;
-    local.active = false;
-    state.points.attr("display", null);
-    state.points.transition().duration(400)
-      .attr("cx", (d) => state.x(d.u)).attr("cy", (d) => state.y(d.v));
-  }
-
-  return { init, applySelection, reproject, restoreGlobal,
-           isLocal: () => local.active };
+  return { init, applySelection };
 })();

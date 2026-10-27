@@ -42,7 +42,6 @@ async function verifyTriggers() {
     // One <g class="row"> per contrasted feature - the dumbbell rows View D draws.
     contrastBars: document.querySelectorAll("#view-d-canvas g.row").length,
     residualHatching: document.querySelectorAll("path.country.is-unreliable").length,
-    localBanner: document.querySelectorAll(".local-banner").length,
     header: document.getElementById("view-d-header").textContent,
     toggleFirst: document.querySelector(".toggle-button")?.textContent,
   });
@@ -54,18 +53,21 @@ async function verifyTriggers() {
   let state = analyticOutput();
   check("no contrast bars before any interaction", state.contrastBars === 0);
   check("no residual hatching before any interaction", state.residualHatching === 0);
-  check("no local re-projection banner before any interaction", state.localBanner === 0);
   check("View D header says 'no selection'", state.header === "no selection", state.header);
   check("map toggle offers volume, not residual",
     state.toggleFirst === "Incident volume", state.toggleFirst);
 
-  // The two-state toggle is a DISPLAY switch: pressing it must not compute anything.
+  // Both two-state toggles are DISPLAY switches: View A's map layer and View B's
+  // projection layout. Pressing either must not compute anything.
   const before = analyticOutput().contrastBars;
   document.querySelectorAll(".toggle-button").forEach((b) => b.click());
   await wait(600);
-  check("pressing the layer toggle starts no analytic",
+  check("pressing a display toggle starts no analytic",
     analyticOutput().contrastBars === before);
-  document.querySelector(".toggle-button").click();
+  // Put every toggle back on its first state, not just the first toggle on the page:
+  // leaving View B in the other layout would make whatever runs next report on a
+  // projection nobody chose.
+  document.querySelectorAll(".toggle").forEach((t) => t.querySelector("button").click());
 
   // The map's zoom buttons are the other display-only control, and they are the newest
   // buttons in the interface - which makes them the likeliest place for the "no menu
@@ -98,7 +100,7 @@ async function verifyTriggers() {
   check("map click names the comparison", state.header.includes("vs"), state.header);
 
   // The case that was reported: a country selected on the map, then a plain click in
-  // View B. It re-projected the country's incidents. Only a lasso may refit t-SNE.
+  // View B. A click is not a lasso, so it must leave the selection exactly as it was.
   const plane = document.querySelector("#view-b-canvas > svg");
   const box = plane.getBoundingClientRect();
   const at = { bubbles: true, view: window,
@@ -106,10 +108,9 @@ async function verifyTriggers() {
   plane.dispatchEvent(new MouseEvent("mousedown", { ...at, buttons: 1 }));
   window.dispatchEvent(new MouseEvent("mouseup", { ...at, buttons: 0 }));
   await wait(1500);
-  check("a click in View B does not re-project a country selection",
-    analyticOutput().localBanner === 0
-    && SelectionStore.getState().countries.length === 1,
-    `banner ${analyticOutput().localBanner}, countries ${SelectionStore.getState().countries}`);
+  check("a click in View B leaves a country selection untouched",
+    SelectionStore.getState().countries.length === 1,
+    `countries ${SelectionStore.getState().countries}`);
 
   // Trigger 2 - timeline brush.
   SelectionStore.setYearRange([2022, 2024]);
@@ -150,36 +151,30 @@ async function verifyTriggers() {
     SelectionStore.getState().countries.length === 0);
   check("clearing by sea click also removes the contrast", state.contrastBars === 0);
 
-  // Dismissing a lasso must also dismiss the layout it produced.
-  //
-  // Regression, reported from the interface: with a country selected, a lasso, and the
-  // local re-projection on screen, clicking empty space cleared the lasso everywhere
-  // EXCEPT in View B, which kept showing the local layout and its banner. The clearing
-  // click publishes with origin "projection", which View B read as its own doing, and
-  // the snapshot was not empty because the country was still selected.
-  //
-  // Driven through the store rather than by a synthetic drag: the click path ends in
-  // exactly this call, and simulating the drag itself is what the static audit already
-  // too fragile to assert.
+  // The lasso selects, and nothing else. What has to hold is that the subset reaches
+  // the other views and that dismissing it gives the earlier selection back untouched -
+  // the regression that was reported here was a dismissing click wiping the country too.
   SelectionStore.clear();
   await wait(600);
   SelectionStore.setCountries(["RU"]);
   await wait(1500);
   const russian = SelectionStore.resolve().selected.map((d) => d.incident_id);
-  SelectionStore.setLasso(new Set(russian.slice(0, 80)));
-  await wait(9000);
-  check("a lasso puts View B into its local layout", ViewB.isLocal(),
-    `isLocal=${ViewB.isLocal()}`);
+  const subset = russian.slice(0, 80);
+  SelectionStore.setLasso(new Set(subset));
+  await wait(2000);
+  check("a lasso narrows the selection to the incidents it encloses",
+    SelectionStore.resolve().selected.length === subset.length,
+    `${SelectionStore.resolve().selected.length} selected`);
+  check("the other views answer the lassoed subset", analyticOutput().contrastBars > 0,
+    `${analyticOutput().contrastBars} rows`);
+  check("the projection dims what the lasso left out",
+    document.querySelectorAll("#view-b-canvas circle.point.is-dimmed").length > 0);
 
   SelectionStore.setLasso(null);
   await wait(900);
-  check("dismissing the lasso restores the global layout", !ViewB.isLocal(),
-    `isLocal=${ViewB.isLocal()}`);
   check("dismissing the lasso keeps the country selection",
     SelectionStore.getState().countries.join(",") === "RU",
     SelectionStore.getState().countries.join(","));
-  check("dismissing the lasso removes the local-projection banner",
-    document.querySelectorAll("#view-b-canvas g.local-banner").length === 0);
   SelectionStore.clear();
   await wait(600);
 

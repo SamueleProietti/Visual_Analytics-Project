@@ -1,8 +1,8 @@
 """Threat-Shape — FastAPI application and static frontend host.
 
-It serves the D3 frontend, the static data endpoints and the three analytics
-(/api/residuals, /api/reproject, /api/contrast), none of which may compute
-anything before a selection exists.
+It serves the D3 frontend, the static data endpoints and the two analytics
+(/api/residuals, /api/contrast), neither of which may compute anything before a
+selection exists.
 
 Run from the repository root:
     .venv/Scripts/python -m uvicorn backend.app.main:app --reload      # Windows
@@ -21,8 +21,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import analytics, data
 from .models import (ContrastResponse, CountrySummary, DatasetStatus, FeatureBlock,
-                     HealthResponse,
-                     Incident, ReprojectResponse, ResidualsResponse,
+                     HealthResponse, Incident, ResidualsResponse,
                      SelectionRequest, TimelinePoint)
 
 # backend/app/main.py -> backend/app -> backend -> repository root
@@ -129,7 +128,8 @@ def get_incidents() -> list[dict]:
     """
     columns = ["incident_id", "name", "year", "weighted_intensity",
                "affected_entities_value", "impact_indicator_score",
-               "not_attributed", "countries", "types", "x", "y"]
+               "not_attributed", "countries", "types", "x", "y",
+               "x_direct", "y_direct"]
     return _records(data.incidents()[columns])
 
 
@@ -187,24 +187,6 @@ def post_residuals(request: SelectionRequest) -> ResidualsResponse:
         n_incidents=len(ids), n_observations=observations,
         summary=analytics.residuals_summary(countries),
     )
-
-
-@app.post("/api/reproject", response_model=ReprojectResponse, tags=["analytics"])
-def post_reproject(request: SelectionRequest) -> ReprojectResponse:
-    """Local re-projection — refit t-SNE on the selected subset alone.
-
-    This is the technique the proposal puts inside the interactive analysis flow: PCA is
-    static denoising computed once offline, t-SNE is what re-runs on whatever the analyst
-    picked. Takes a couple of seconds on a large selection, which is the honest cost of
-    fitting a real embedding rather than filtering a precomputed one.
-    """
-    ids = set(request.incident_ids)
-    if not ids:
-        raise HTTPException(status_code=400, detail="a selection is required")
-    try:
-        return ReprojectResponse(**analytics.local_reprojection(ids))
-    except ValueError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
 
 
 @app.post("/api/contrast", response_model=ContrastResponse, tags=["analytics"])

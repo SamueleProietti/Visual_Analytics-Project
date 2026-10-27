@@ -3,9 +3,9 @@ Feature scaling and PCA.
 
 Standardises the 127-column feature matrix and reduces it to 20 principal components,
 following docs/proposal.md verbatim: "The one-hot encoded space is reduced by PCA to 20
-components and then by t-SNE to 2D". PCA here is static offline denoising and is never
-re-run on a selection - the technique integrated in the interactive
-flow is t-SNE, via the local re-projection.
+components and then by t-SNE to 2D". PCA here is static offline denoising and is never re-run on a selection. Whether it
+belongs in the pipeline at all is measured in scripts/08_tsne_direct.py, which builds the
+alternative without it and compares the two on trustworthiness.
 
 Writes:
     data/processed/pca_components.csv.gz   3,414 x 20   input to 03_tsne_global.py
