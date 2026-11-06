@@ -1,0 +1,124 @@
+indicator,attribute,category,missing_or_null_value,incidents_with_1
+type_data_theft,incident_type,Data theft,False,1261
+type_data_theft_doxing,incident_type,Data theft & Doxing,False,414
+type_disruption,incident_type,Disruption,False,1475
+type_hijacking_with_misuse,incident_type,Hijacking with Misuse,False,1800
+type_hijacking_without_misuse,incident_type,Hijacking without Misuse,False,365
+type_not_available,incident_type,Not available,True,4
+type_ransomware,incident_type,Ransomware,False,502
+access_drive_by_compromise,mitre_initial_access,Drive-By Compromise,False,30
+access_exploit_public_facing_application,mitre_initial_access,Exploit Public-Facing Application,False,176
+access_external_remote_services,mitre_initial_access,External Remote Services,False,25
+access_hardware_additions,mitre_initial_access,Hardware Additions,False,6
+access_not_available,mitre_initial_access,Not available,True,2908
+access_phishing,mitre_initial_access,Phishing,False,179
+access_replication_through_removable_media,mitre_initial_access,Replication Through Removable Media,False,9
+access_supply_chain_compromise,mitre_initial_access,Supply Chain Compromise,False,13
+access_trusted_relationship,mitre_initial_access,Trusted Relationship,False,13
+access_valid_accounts,mitre_initial_access,Valid Accounts,False,55
+impact_account_access_removal,mitre_impact,Account Access Removal,False,28
+impact_data_destruction,mitre_impact,Data Destruction,False,35
+impact_data_encrypted_for_impact,mitre_impact,Data Encrypted for Impact,False,189
+impact_data_exfiltration,mitre_impact,Data Exfiltration,False,837
+impact_data_manipulation,mitre_impact,Data Manipulation,False,37
+impact_defacement,mitre_impact,Defacement,False,74
+impact_disk_wipe,mitre_impact,Disk Wipe,False,9
+impact_endpoint_denial_of_service,mitre_impact,Endpoint Denial of Service,False,6
+impact_firmware_corruption,mitre_impact,Firmware Corruption,False,2
+impact_network_denial_of_service,mitre_impact,Network Denial of Service,False,224
+impact_not_available,mitre_impact,Not available,True,1963
+impact_resource_hijacking,mitre_impact,Resource Hijacking,False,2
+impact_service_stop,mitre_impact,Service Stop,False,6
+impact_system_shutdown_reboot,mitre_impact,System Shutdown/Reboot,False,2
+fimpact_day,functional_impact,Day (< 24h),False,304
+fimpact_days,functional_impact,Days (< 7 days),False,396
+fimpact_months,functional_impact,Months,False,58
+fimpact_no_system_interference_disruption,functional_impact,No system interference/disruption,False,1029
+fimpact_not_available,functional_impact,Not available,True,1471
+fimpact_weeks,functional_impact,Weeks (< 4 weeks),False,156
+iimpact_data_corruption_but_no_leaking_of_data_n,intelligence_impact,"Data corruption (deletion/altering) but no leaking of data, no data breach/exfiltration OR major data breach / exfiltration, but no data corruption and/or leaking of data",False,236
+iimpact_major_data_breach_exfiltration_data_corr,intelligence_impact,Major data breach/exfiltration (critical/sensitive information) & data corruption (deletion/altering) and/or leaking of data,False,113
+iimpact_minor_data_breach_exfiltration_but_no_da,intelligence_impact,"Minor data breach/exfiltration (no critical/sensitive information), but no data corruption (deletion/altering) or leaking of data",False,434
+iimpact_minor_data_breach_exfiltration_data_corr,intelligence_impact,"Minor data breach/exfiltration (no critical/sensitive information), data corruption (deletion/altering) and/or leaking of data",False,129
+iimpact_no_data_breach_exfiltration_or_data_corr,intelligence_impact,No data breach/exfiltration or data corruption (deletion/altering) and/or leaking of data,False,1043
+iimpact_not_available,intelligence_impact,Not available,True,1459
+issue_autonomy,cyber_conflict_issue,Autonomy,False,28
+issue_cyber_specific,cyber_conflict_issue,Cyber-specific,False,115
+issue_decolonization,cyber_conflict_issue,Decolonization,False,1
+issue_international_power,cyber_conflict_issue,International power,False,790
+issue_national_power,cyber_conflict_issue,National power,False,145
+issue_not_available,cyber_conflict_issue,Not available,True,190
+issue_other,cyber_conflict_issue,Other,False,77
+issue_resources,cyber_conflict_issue,Resources,False,351
+issue_secession,cyber_conflict_issue,Secession,False,84
+issue_subnational_predominance,cyber_conflict_issue,Subnational predominance,False,16
+issue_system_ideology,cyber_conflict_issue,System / ideology,False,1002
+issue_territory,cyber_conflict_issue,Territory,False,381
+issue_unknown,cyber_conflict_issue,Unknown,True,1631
+oissue_autonomy,offline_conflict_issue,Autonomy,False,30
+oissue_international_power,offline_conflict_issue,International power,False,617
+oissue_national_power,offline_conflict_issue,National power,False,124
+oissue_not_available,offline_conflict_issue,Not available,True,1180
+oissue_other,offline_conflict_issue,Other,False,14
+oissue_resources,offline_conflict_issue,Resources,False,435
+oissue_secession,offline_conflict_issue,Secession,False,102
+oissue_subnational_predominance,offline_conflict_issue,Subnational predominance,False,19
+oissue_system_ideology,offline_conflict_issue,System/ideology,False,707
+oissue_territory,offline_conflict_issue,Territory,False,443
+oissue_third_party_intervention_third_party_aff,offline_conflict_issue,Third-party intervention / third-party affection,False,223
+oissue_unknown,offline_conflict_issue,Unknown,True,1276
+ilaw_aid_and_development,il_breach_indicator,Aid and development,False,10
+ilaw_air_law,il_breach_indicator,Air law,False,27
+ilaw_armed_conflict,il_breach_indicator,Armed conflict,False,124
+ilaw_cyber_espionage,il_breach_indicator,Cyber espionage,False,227
+ilaw_diplomatic_consular_law,il_breach_indicator,Diplomatic / consular law,False,20
+ilaw_disaster_management,il_breach_indicator,Disaster management,False,5
+ilaw_due_diligence,il_breach_indicator,Due diligence,False,571
+ilaw_human_rights,il_breach_indicator,Human rights,False,866
+ilaw_intellectual_property_law,il_breach_indicator,Intellectual property law,False,28
+ilaw_international_criminal_law,il_breach_indicator,International criminal law,False,1
+ilaw_international_economic_law,il_breach_indicator,International economic law,False,4
+ilaw_international_organizations,il_breach_indicator,International organizations,False,13
+ilaw_international_peace,il_breach_indicator,International peace,False,43
+ilaw_international_telecommunication_law,il_breach_indicator,International telecommunication law,False,65
+ilaw_law_of_the_sea,il_breach_indicator,Law of the sea,False,18
+ilaw_law_of_treaties,il_breach_indicator,Law of treaties (pacta sunt servanda),False,8
+ilaw_not_available,il_breach_indicator,Not available,True,1544
+ilaw_self_determination,il_breach_indicator,Self-determination,False,2
+ilaw_sovereignty,il_breach_indicator,Sovereignty,False,1749
+ilaw_space_law,il_breach_indicator,Space law,False,5
+init_individual_hacker,initiator_category,Individual hacker(s),False,87
+init_non_state_group,initiator_category,Non-state-group,False,1160
+init_not_attributed,initiator_category,Not attributed,True,935
+init_other,initiator_category,Other,False,1
+init_state,initiator_category,State,False,329
+init_state_affiliated_actor,initiator_category,State affiliated actor,False,693
+init_unknown,initiator_category,Unknown,True,241
+stateresp_direct,state_responsibility_actor,Direct (official members of state entities / agencies / units responsible),False,109
+stateresp_indirect,state_responsibility_actor,Indirect (knowingly sanctioning / ordering / ideological / material support by official members of state entities/agencies/units for officially non-state-actors),False,309
+stateresp_none_negligent,state_responsibility_actor,None/Negligent,False,675
+stateresp_not_available,state_responsibility_actor,Not available,True,2321
+target_corporate_targets,receiver_category,Corporate Targets (corporate targets only coded if the respective company is not part of the critical infrastructure definition),False,540
+target_critical_infrastructure,receiver_category,Critical infrastructure,False,1383
+target_education,receiver_category,Education,False,191
+target_end_user_specially_protected_groups,receiver_category,End user(s) / specially protected groups,False,114
+target_international_supranational_organization,receiver_category,International / supranational organization,False,81
+target_media,receiver_category,Media,False,232
+target_not_available,receiver_category,Not available,True,29
+target_other,receiver_category,Other,False,53
+target_science,receiver_category,Science,False,101
+target_social_groups,receiver_category,Social groups,False,223
+target_state_institutions_political_system,receiver_category,State institutions / political system,False,1770
+target_unknown,receiver_category,Unknown,True,126
+dtheft_for_private_commercial_targets_non_sensi,data_theft,For private / commercial targets: non-sensitive information (incident scores 1 point in intensity),False,1154
+dtheft_for_private_commercial_targets_sensitive,data_theft,For private / commercial targets: sensitive information (incident scores 2 points in intensity),False,516
+dtheft_not_available,data_theft,Not available,True,1134
+dtheft_none,data_theft,none,True,610
+disrupt_long_term_disruption,disruption,Long-term disruption (> 24h; incident scores 2 points in intensity),False,650
+disrupt_not_available,disruption,Not available,True,1127
+disrupt_short_term_disruption,disruption,Short-term disruption (< 24h; incident scores 1 point in intensity),False,813
+disrupt_none,disruption,none,True,824
+hijack_hijacking_not_used_empowerment,hijacking,"Hijacking, not used - empowerment (incident scores 1 point in intensity)",False,355
+hijack_hijacking_system_misuse_e_g_through_data,hijacking,"Hijacking, system misuse, e.g., through data theft and / or disruption (incident scores 2 points in intensity)",False,1805
+hijack_not_available,hijacking,Not available,True,326
+hijack_none,hijacking,none,True,928

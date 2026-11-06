@@ -5,7 +5,8 @@ Sapienza University of Rome, Visual Analytics course, Prof. Giuseppe Santucci.
 
 See `docs/proposal.md` for the approved 1-page proposal.    
 See `docs/phase0_report.md` for the verified data figures.    
-See `docs/insights.md` for the five findings made with the tool, and how to reproduce them.
+See `docs/insights.md` for the five findings made with the tool, and how to reproduce them.    
+See `data/tables/` for the data as readable, uncompressed tables, and how the 85 EuRepoC columns become the 127 features.
 
 ## Getting started
 
