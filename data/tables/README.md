@@ -19,13 +19,6 @@ version 1.3.2, file `eurepoc_global_dataset_1_3.csv`: <https://zenodo.org/record
 (doi:10.5281/zenodo.14965395), licensed CC BY-NC 4.0. One row per incident: 3,414 rows and
 85 columns.
 
-```
-85 columns in the EuRepoC file
- └─> 18 attributes kept: 4 numeric + 14 categorical
-      └─> the 14 categorical become 123 binary indicators
-           └─> 123 + 4 = 127 features, standardized, input of PCA and t-SNE
-```
-
 ## From 85 columns to 18 attributes
 
 Every one of the 85 columns was classified (`scripts/00_verify_data.py`,
